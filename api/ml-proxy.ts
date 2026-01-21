@@ -13,39 +13,59 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).end();
   }
 
-  // Only allow GET and POST
-  if (req.method !== 'GET' && req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
   try {
     // Get the path from query parameter
     const path = (req.query.path as string) || '';
     const url = `${ML_BACKEND_URL}${path}`;
 
     console.log('Proxying request:', req.method, url);
-    console.log('Request body:', req.body);
 
-    const fetchOptions: RequestInit = {
+    const https = require('https');
+    const http = require('http');
+    
+    const options: any = {
       method: req.method,
       headers: {
         'Content-Type': 'application/json',
       },
     };
 
-    // Add body for POST requests
-    if (req.method === 'POST' && req.body) {
-      fetchOptions.body = JSON.stringify(req.body);
-    }
+    // Use http module for the request
+    return new Promise((resolve) => {
+      const httpReq = http.request(url, options, (httpRes: any) => {
+        let data = '';
+        
+        httpRes.on('data', (chunk: any) => {
+          data += chunk;
+        });
+        
+        httpRes.on('end', () => {
+          try {
+            const jsonData = JSON.parse(data);
+            res.status(httpRes.statusCode).json(jsonData);
+          } catch (e) {
+            res.status(httpRes.statusCode).send(data);
+          }
+          resolve(null);
+        });
+      });
 
-    const response = await fetch(url, fetchOptions);
-    
-    console.log('Backend response status:', response.status);
-    
-    const data = await response.json();
-    console.log('Backend response data:', data);
-    
-    return res.status(response.status).json(data);
+      httpReq.on('error', (error: any) => {
+        console.error('Proxy error:', error);
+        res.status(500).json({ 
+          error: 'Failed to reach backend',
+          details: error.message 
+        });
+        resolve(null);
+      });
+
+      // Send body for POST requests
+      if (req.method === 'POST' && req.body) {
+        httpReq.write(JSON.stringify(req.body));
+      }
+
+      httpReq.end();
+    });
   } catch (error: any) {
     console.error('Proxy error:', error);
     return res.status(500).json({ 
