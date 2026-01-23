@@ -81,6 +81,7 @@ const ChargingStations: React.FC = () => {
     paymentError: ''
   });
   const reportContentRef = useRef<HTMLDivElement>(null);
+  const aiImageContainerRef = useRef<HTMLDivElement>(null);
 
   const TOKEN_ENDPOINT = 'https://cms.charjkaro.in/admin/api/v1/zipbolt/token';
   const API_BASE_URL = 'https://cms.charjkaro.in/commands/secure/api/v1/get/charger/time_lapsed';
@@ -655,16 +656,189 @@ const ChargingStations: React.FC = () => {
             {/* Header */}
             <div className="flex items-center justify-between border-b border-blue-100 p-6 sticky top-0 bg-white z-10">
               <div className="flex-1">
-                <h2 className="text-2xl font-bold text-gray-900">Charger Report</h2>
+                <h2 className="text-2xl font-bold text-gray-900">ZEFLASH RAPID AI Battery Report</h2>
                 <p className="text-sm text-gray-600 mt-1">EVSE ID: {reportModal.evseId} • Connector: {reportModal.connectorId}</p>
               </div>
               <div className="flex items-center gap-3">
                 {/* Download button with visuals */}
                 <button
                   onClick={async () => {
-                    if (!reportContentRef.current || !reportModal.data?.data) return;
+                    if (!reportContentRef.current || !reportModal.data?.data || !aiImageContainerRef.current) return;
                     try {
-                      // Store original dimensions
+                      const pdf = new jsPDF({
+                        orientation: 'portrait',
+                        unit: 'mm',
+                        format: 'a4'
+                      });
+                      
+                      const pageWidth = pdf.internal.pageSize.getWidth();
+                      const pageHeight = pdf.internal.pageSize.getHeight();
+                      const margin = 8;
+                      const contentWidth = pageWidth - (2 * margin);
+                      const headerHeight = 16;
+
+                      const colors = {
+                        pageBg: [248, 250, 252],
+                        headerBg: [37, 99, 235],
+                        headerText: [255, 255, 255],
+                        bodyText: [33, 37, 41],
+                        sectionTitle: [30, 64, 175],
+                        divider: [203, 213, 225],
+                        cardBg: [255, 255, 255],
+                        cardBorder: [226, 232, 240]
+                      } as const;
+
+                      const drawBackgroundAndHeader = () => {
+                        // Page background
+                        pdf.setFillColor(colors.pageBg[0], colors.pageBg[1], colors.pageBg[2]);
+                        pdf.rect(0, 0, pageWidth, pageHeight, 'F');
+                        // Header banner
+                        pdf.setFillColor(colors.headerBg[0], colors.headerBg[1], colors.headerBg[2]);
+                        pdf.rect(0, 0, pageWidth, headerHeight, 'F');
+                        pdf.setTextColor(colors.headerText[0], colors.headerText[1], colors.headerText[2]);
+                        pdf.setFontSize(12);
+                        pdf.text('Charger Report', margin, 7);
+                        pdf.setFontSize(9);
+                        pdf.text(`EVSE ID: ${reportModal.evseId} | Connector: ${reportModal.connectorId}`, margin, 11.5);
+                        pdf.text(`Date: ${new Date().toISOString().slice(0, 10)}`, margin, 14);
+                        // Divider under header
+                        pdf.setDrawColor(colors.divider[0], colors.divider[1], colors.divider[2]);
+                        pdf.setLineWidth(0.2);
+                        pdf.line(margin, headerHeight + 0.5, pageWidth - margin, headerHeight + 0.5);
+                        // Reset body text styling
+                        pdf.setTextColor(colors.bodyText[0], colors.bodyText[1], colors.bodyText[2]);
+                        pdf.setFontSize(10);
+                      };
+
+                      const newPage = () => {
+                        pdf.addPage();
+                        drawBackgroundAndHeader();
+                        return headerHeight + margin;
+                      };
+
+                      // First page chrome
+                      drawBackgroundAndHeader();
+                      let currentPosition = headerHeight + margin;
+
+                      // Add AI Image Section - Use the already-loaded image from DOM
+                      pdf.setTextColor(colors.sectionTitle[0], colors.sectionTitle[1], colors.sectionTitle[2]);
+                      pdf.setFontSize(12);
+                      pdf.text('AI Battery Health Analysis', margin, currentPosition);
+                      currentPosition += 6;
+
+                      // Card container for AI section
+                      const cardX = margin;
+                      const cardYStart = currentPosition;
+                      const cardPadding = 4;
+                      let cardHeight = 30; // will adjust after image
+                      pdf.setDrawColor(colors.cardBorder[0], colors.cardBorder[1], colors.cardBorder[2]);
+                      pdf.setFillColor(colors.cardBg[0], colors.cardBg[1], colors.cardBg[2]);
+                      pdf.roundedRect(cardX, cardYStart, contentWidth, cardHeight, 2, 2, 'FD');
+                      currentPosition += cardPadding;
+
+                      try {
+                        // Get the img element that's already loaded in the DOM
+                        const imgElement = aiImageContainerRef.current.querySelector('img') as HTMLImageElement;
+                        
+                        if (imgElement && imgElement.src && imgElement.naturalHeight > 0) {
+                          // Image is already loaded in DOM, draw it on a canvas
+                          const canvas = document.createElement('canvas');
+                          const ctx = canvas.getContext('2d');
+                          if (!ctx) throw new Error('Could not get canvas context');
+                          
+                          // Set canvas dimensions to match the natural image size
+                          canvas.width = imgElement.naturalWidth;
+                          canvas.height = imgElement.naturalHeight;
+                          
+                          // Draw the image from the already-loaded DOM element
+                          ctx.drawImage(imgElement, 0, 0);
+                          
+                          // Get the canvas as PNG
+                          const imgData = canvas.toDataURL('image/png');
+                          
+                          // Calculate dimensions for PDF
+                          const imgWidth = contentWidth - (2 * cardPadding);
+                          const imgHeight = (imgElement.naturalHeight * imgWidth) / imgElement.naturalWidth;
+                          
+                          if (currentPosition + imgHeight + cardPadding > pageHeight - margin) {
+                            currentPosition = newPage();
+                            // Re-draw card backdrop on new page
+                            pdf.roundedRect(cardX, currentPosition, contentWidth, imgHeight + (2 * cardPadding), 2, 2, 'FD');
+                            currentPosition += cardPadding;
+                          }
+                          
+                          pdf.addImage(imgData, 'PNG', margin + cardPadding, currentPosition, imgWidth, imgHeight);
+                          currentPosition += imgHeight + cardPadding;
+                          // Adjust card height and redraw border to fit content
+                          cardHeight = (currentPosition - cardYStart) + cardPadding;
+                          pdf.setDrawColor(colors.cardBorder[0], colors.cardBorder[1], colors.cardBorder[2]);
+                          pdf.roundedRect(cardX, cardYStart, contentWidth, cardHeight, 2, 2);
+                          currentPosition += 6;
+                        } else {
+                          pdf.setTextColor(150);
+                          pdf.setFontSize(9);
+                          pdf.text('AI image not yet loaded. Please wait for image to load in the UI first.', margin, currentPosition);
+                          currentPosition += 8;
+                          // Adjust card to minimal height
+                          cardHeight = (currentPosition - cardYStart) + cardPadding;
+                          pdf.roundedRect(cardX, cardYStart, contentWidth, cardHeight, 2, 2);
+                        }
+                      } catch (err) {
+                        console.error('Failed to process AI image via direct canvas draw:', err);
+                        try {
+                          const container = aiImageContainerRef.current;
+                          if (container) {
+                            const canvas = await html2canvas(container, {
+                              scale: 2,
+                              logging: false,
+                              useCORS: true,
+                              allowTaint: false,
+                              backgroundColor: '#ffffff'
+                            });
+                            const imgData = canvas.toDataURL('image/png');
+                            const imgWidth = contentWidth - (2 * cardPadding);
+                            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+                            if (currentPosition + imgHeight + cardPadding > pageHeight - margin) {
+                              currentPosition = newPage();
+                              pdf.roundedRect(cardX, currentPosition, contentWidth, imgHeight + (2 * cardPadding), 2, 2, 'FD');
+                              currentPosition += cardPadding;
+                            }
+                            pdf.addImage(imgData, 'PNG', margin + cardPadding, currentPosition, imgWidth, imgHeight);
+                            currentPosition += imgHeight + cardPadding;
+                            cardHeight = (currentPosition - cardYStart) + cardPadding;
+                            pdf.roundedRect(cardX, cardYStart, contentWidth, cardHeight, 2, 2);
+                            currentPosition += 6;
+                          } else {
+                            pdf.setTextColor(150);
+                            pdf.setFontSize(9);
+                            pdf.text('Unable to process AI image', margin, currentPosition);
+                            currentPosition += 8;
+                            cardHeight = (currentPosition - cardYStart) + cardPadding;
+                            pdf.roundedRect(cardX, cardYStart, contentWidth, cardHeight, 2, 2);
+                          }
+                        } catch (fallbackErr) {
+                          console.error('Fallback html2canvas capture also failed:', fallbackErr);
+                          pdf.setTextColor(150);
+                          pdf.setFontSize(9);
+                          pdf.text('Unable to process AI image', margin, currentPosition);
+                          currentPosition += 8;
+                          cardHeight = (currentPosition - cardYStart) + cardPadding;
+                          pdf.roundedRect(cardX, cardYStart, contentWidth, cardHeight, 2, 2);
+                        }
+                      }
+
+                      // Add page break before metrics with styled header
+                      currentPosition = newPage();
+                      pdf.setTextColor(colors.sectionTitle[0], colors.sectionTitle[1], colors.sectionTitle[2]);
+                      pdf.setFontSize(12);
+                      pdf.text('Charging Session Metrics & Visuals', margin, currentPosition);
+                      pdf.setDrawColor(colors.divider[0], colors.divider[1], colors.divider[2]);
+                      pdf.setLineWidth(0.2);
+                      pdf.line(margin, currentPosition + 2.5, pageWidth - margin, currentPosition + 2.5);
+                      currentPosition += 6;
+
+                      // Capture report metrics
                       const element = reportContentRef.current;
                       const originalWidth = element.style.width;
                       const originalHeight = element.style.height;
@@ -674,11 +848,10 @@ const ChargingStations: React.FC = () => {
                       if (element.parentElement) {
                         element.parentElement.style.maxHeight = 'none';
                       }
-                      element.style.width = '297mm'; // A4 width in mm
+                      element.style.width = '297mm';
                       element.style.height = 'auto';
 
-                      // Wait for layout to settle
-                      await new Promise(resolve => setTimeout(resolve, 500));
+                      await new Promise(resolve => setTimeout(resolve, 1500));
 
                       const canvas = await html2canvas(element, {
                         scale: 2,
@@ -696,49 +869,54 @@ const ChargingStations: React.FC = () => {
                       }
 
                       const imgData = canvas.toDataURL('image/png');
-                      const pdf = new jsPDF({
-                        orientation: 'portrait',
-                        unit: 'mm',
-                        format: 'a4'
-                      });
-                      
-                      const pageWidth = pdf.internal.pageSize.getWidth();
-                      const pageHeight = pdf.internal.pageSize.getHeight();
-                      const imgWidth = pageWidth - 10; // 5mm margins
-                      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-                      let position = 5; // Top margin
+                      const imgHeight = (canvas.height * contentWidth) / canvas.width;
                       let heightLeft = imgHeight;
 
-                      // Add pages if content is longer than one page
-                      let page = 1;
+                      // Add content pages
                       while (heightLeft > 0) {
-                        const pageHeightAvailable = pageHeight - 10; // 5mm margins
+                        const pageHeightAvailable = pageHeight - (2 * margin);
                         
-                        if (position + heightLeft > pageHeight) {
-                          // Calculate how much of the image fits on this page
-                          const heightToPrint = pageHeightAvailable - (position - 5);
+                        if (currentPosition + heightLeft > pageHeight) {
+                          const heightToPrint = pageHeightAvailable - (currentPosition - margin);
                           
                           pdf.addImage(
                             imgData,
                             'PNG',
-                            5,
-                            position,
-                            imgWidth,
+                            margin,
+                            currentPosition,
+                            contentWidth,
                             heightToPrint
                           );
                           
                           heightLeft -= heightToPrint;
-                          position = 5;
+                          // New page with chrome
+                          currentPosition = newPage();
+                          // Re-add section header on subsequent pages
+                          pdf.setTextColor(colors.sectionTitle[0], colors.sectionTitle[1], colors.sectionTitle[2]);
+                          pdf.setFontSize(12);
+                          pdf.text('Charging Session Metrics & Visuals', margin, currentPosition);
+                          pdf.setDrawColor(colors.divider[0], colors.divider[1], colors.divider[2]);
+                          pdf.setLineWidth(0.2);
+                          pdf.line(margin, currentPosition + 2.5, pageWidth - margin, currentPosition + 2.5);
+                          currentPosition += 6;
                           
                           if (heightLeft > 0) {
-                            pdf.addPage();
-                            page++;
+                            // next loop will draw background via newPage() above
                           }
                         } else {
-                          pdf.addImage(imgData, 'PNG', 5, position, imgWidth, imgHeight);
+                          pdf.addImage(imgData, 'PNG', margin, currentPosition, contentWidth, imgHeight);
                           heightLeft = 0;
                         }
+                      }
+
+                      // Footer: add page numbers and attribution
+                      const totalPages = pdf.getNumberOfPages();
+                      for (let i = 1; i <= totalPages; i++) {
+                        pdf.setPage(i);
+                        pdf.setTextColor(120);
+                        pdf.setFontSize(8);
+                        const footerText = `Generated by ZeFlash • Page ${i} of ${totalPages}`;
+                        pdf.text(footerText, margin, pageHeight - 4);
                       }
 
                       pdf.save(`charger_report_${reportModal.evseId}_${reportModal.connectorId}_${new Date().toISOString().slice(0, 10)}.pdf`);
@@ -892,25 +1070,37 @@ const ChargingStations: React.FC = () => {
                   )}
 
                   {/* AI Health Report Image */}
-                  {reportModal.aiImageUrl && !reportModal.aiLoading && (
-                    <div className="border border-gray-200 rounded-lg p-4 bg-white">
-                      <p className="text-gray-700 font-semibold mb-3">AI Battery Health Analysis</p>
-                      <img 
-                        src={reportModal.aiImageUrl} 
-                        alt="AI Health Report" 
-                        className="w-full h-auto rounded-lg shadow-md border border-gray-100"
-                        onError={() => {
-                          console.error('Image failed to load:', reportModal.aiImageUrl);
-                          setReportModal((prev) => ({ 
-                            ...prev, 
-                            aiError: 'Failed to load AI report image. The image may still be generating. Please try again in a moment.',
-                            aiLoading: false,
-                            aiImageUrl: ''
-                          }));
-                        }}
-                      />
-                    </div>
-                  )}
+                  <div ref={aiImageContainerRef} className="border border-gray-200 rounded-lg p-4 bg-white min-h-[200px] flex items-center justify-center">
+                    {reportModal.aiLoading && (
+                      <div className="flex flex-col items-center justify-center space-y-4">
+                        <div className="animate-spin h-8 w-8 border-3 border-blue-400 border-t-blue-600 rounded-full"></div>
+                        <p className="text-gray-600 text-sm">Generating AI image...</p>
+                      </div>
+                    )}
+                    {reportModal.aiImageUrl && !reportModal.aiLoading && (
+                      <div>
+                        <p className="text-gray-700 font-semibold mb-3">AI Battery Health Analysis</p>
+                        <img 
+                          src={reportModal.aiImageUrl} 
+                          alt="AI Health Report" 
+                          className="w-full h-auto rounded-lg shadow-md border border-gray-100"
+                          crossOrigin="anonymous"
+                          onError={() => {
+                            console.error('Image failed to load:', reportModal.aiImageUrl);
+                            setReportModal((prev) => ({ 
+                              ...prev, 
+                              aiError: 'Failed to load AI report image. The image may still be generating. Please try again in a moment.',
+                              aiLoading: false,
+                              aiImageUrl: ''
+                            }));
+                          }}
+                        />
+                      </div>
+                    )}
+                    {!reportModal.aiLoading && !reportModal.aiImageUrl && (
+                      <p className="text-gray-500 text-center">AI analysis not yet generated. Generate AI report to see detailed analysis.</p>
+                    )}
+                  </div>
                   {reportModal.data.data && reportModal.data.data.length > 0 ? (
                     <div ref={reportContentRef} className="space-y-6">
                       {/* Parse data for visualizations */}
