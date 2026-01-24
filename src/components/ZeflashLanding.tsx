@@ -36,7 +36,7 @@ const ZeflashLanding: React.FC = () => {
             if (!el) continue;
             const rect = el.getBoundingClientRect();
             if (rect.top <= 120 && rect.bottom >= 120) {
-              current = id;
+              current = id === 'how' ? 'science' : id;
               break;
             }
           }
@@ -65,13 +65,12 @@ const ZeflashLanding: React.FC = () => {
             </div>
           </div>
           <nav className="hidden md:flex items-center gap-1">
-            <SectionLink href="#what" label="What" active={activeSection==='what'} />
+            <SectionLink href="#what" label="About" active={activeSection==='what'} />
             <SectionLink href="#features" label="Features" active={activeSection==='features'} />
-            <SectionLink href="#how" label="How it works" active={activeSection==='how'} />
-            <SectionLink href="#science" label="Science" active={activeSection==='science'} />
+            <SectionLink href="#science" label="Science Inside" active={activeSection==='science'} />
             <SectionLink href="#who" label="Who it's for" active={activeSection==='who'} />
             <SectionLink href="#why" label="Why Zeflash" active={activeSection==='why'} />
-            <Link to="/plans" className="px-3 py-1.5 rounded-md text-sm font-medium transition-colors text-gray-700 hover:text-blue-700 hover:bg-blue-50">Pricing</Link>
+            <Link to="/plans" className="px-3 py-1.5 rounded-md text-sm font-medium transition-colors text-green-700 hover:text-green-800 hover:bg-green-50">Pricing</Link>
           </nav>
           <div className="flex items-center gap-2 sm:gap-3">
             <SignedOut>
@@ -85,7 +84,7 @@ const ZeflashLanding: React.FC = () => {
             <SignedIn>
               <UserButton />
             </SignedIn>
-            <Link to="/stations" className="inline-flex items-center gap-1 sm:gap-2 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 text-white text-xs sm:text-sm font-semibold px-2 sm:px-4 py-2 hover:from-cyan-600 hover:to-blue-700 shadow-md shadow-blue-200/40 transition-all">
+            <Link to="/stations" className="inline-flex items-center gap-1 sm:gap-2 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-xs sm:text-sm font-semibold px-2 sm:px-4 py-2 hover:from-blue-600 hover:to-indigo-700 shadow-md shadow-blue-200/40 transition-all">
               <Bolt size={16} /> 
               <span className="hidden sm:inline">Quick Test</span>
             </Link>
@@ -112,10 +111,10 @@ const ZeflashLanding: React.FC = () => {
                 Zeflash combines flash-based EV testing at Fast Chargers with ZipsureAI's battery physics-driven AI Deeptech to decode your EV's true performance, aging, and safety condition on the spot.
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
-                <Link to="/stations" className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold px-4 py-2.5 hover:from-emerald-600 hover:to-teal-700 shadow-lg shadow-emerald-200/30">
+                <Link to="/stations" className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold px-4 py-2.5 hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-200/30">
                   <CheckCircle size={18} /> Book a Zeflash RapidTest
                 </Link>
-                <Link to="/plans" className="inline-flex items-center gap-2 rounded-lg bg-white border border-gray-300 text-gray-800 font-medium px-4 py-2.5 hover:bg-gray-50 shadow-sm">
+                <Link to="/plans" className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-green-600 text-white font-medium px-4 py-2.5 hover:from-emerald-600 hover:to-green-700 shadow-md shadow-emerald-200/30">
                   <Play size={18} /> Flexible Testing Plans
                 </Link>
               </div>
@@ -306,20 +305,40 @@ const ZeflashLanding: React.FC = () => {
       {/* Why choose */}
       <section id="why" className="py-12 sm:py-16 bg-gradient-to-b from-blue-50 to-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-6">Why Choose Zeflash: Rapid AI</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[
-              'Real-time on-field testing — results in minutes',
-              'Lab-grade precision at a nearby EV Charger',
-              'Portable and easily accessible for every EV user',
-              'Predictive, AI-driven insights for thermal risks',
-              'Certified, secure performance reports',
-              'See beyond the battery with clear actions'
-            ].map((t, i) => (
-              <div key={i} className="flex items-start gap-2 bg-white border border-gray-200 rounded-xl p-4">
-                <CheckCircle className="text-emerald-600 mt-0.5" size={18} />
-                <span className="text-gray-800 text-sm">{t}</span>
-              </div>
+          <h2 className="text-2xl sm:text-3xl font-bold mb-6">Our Other Services</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {[{
+              name: 'ZipsureAI',
+              href: 'https://zipsureai.com/',
+              desc: 'AI-powered battery intelligence and safety analytics for fleets, OEMs, and energy operators.',
+              accent: 'from-indigo-500 to-blue-600'
+            }, {
+              name: 'EVCHAMP',
+              href: 'https://evchamp.in/',
+              desc: 'Smart EV charging network with seamless booking, monitoring, and uptime-first operations.',
+              accent: 'from-emerald-500 to-green-600'
+            }].map((item) => (
+              <a
+                key={item.name}
+                href={item.href}
+                target="_blank"
+                rel="noreferrer"
+                className="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg"
+              >
+                <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-r ${item.accent} blur-3xl`} aria-hidden />
+                <div className="relative">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-800">
+                    <CheckCircle size={14} className="text-emerald-600" />
+                    {item.name}
+                  </div>
+                  <p className="mt-3 text-gray-900 text-lg font-semibold">{item.name}</p>
+                  <p className="mt-2 text-gray-700 text-sm leading-relaxed">{item.desc}</p>
+                  <div className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-blue-700 group-hover:text-blue-800">
+                    Visit site
+                    <span aria-hidden>→</span>
+                  </div>
+                </div>
+              </a>
             ))}
           </div>
         </div>
@@ -336,7 +355,7 @@ const ZeflashLanding: React.FC = () => {
             <Link to="/stations" className="inline-flex items-center gap-2 rounded-lg bg-blue-600 text-white font-semibold px-5 py-3 hover:bg-blue-700">
               <Bolt size={18} /> Book a Zeflash RapidTest
             </Link>
-            <Link to="/plans" className="inline-flex items-center gap-2 rounded-lg bg-white border border-gray-300 text-gray-800 font-medium px-5 py-3 hover:bg-gray-50">
+            <Link to="/plans" className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-green-600 text-white font-medium px-5 py-3 hover:from-emerald-600 hover:to-green-700 shadow-md shadow-emerald-200/30">
               <Play size={18} /> Flexible Testing Plans
             </Link>
           </div>
