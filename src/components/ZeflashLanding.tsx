@@ -67,7 +67,7 @@ const ZeflashLanding: React.FC = () => {
           <nav className="hidden md:flex items-center gap-1">
             <SectionLink href="#what" label="About" active={activeSection==='what'} />
             <SectionLink href="#features" label="Features" active={activeSection==='features'} />
-            <SectionLink href="#science" label="Science Inside" active={activeSection==='science'} />
+            <SectionLink href="#science" label="EV Intelligence" active={activeSection==='science'} />
             <SectionLink href="#who" label="Who it's for" active={activeSection==='who'} />
             <SectionLink href="#why" label="Why Zeflash" active={activeSection==='why'} />
             <Link
