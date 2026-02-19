@@ -47,10 +47,11 @@ except Exception as e:
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.patches import Polygon
 
 # ============ CONFIG ============
 MODEL_DIR = "models"
-AUTOENCODER_PATH = os.path.join(MODEL_DIR, "autoencoder_best.h5")
+AUTOENCODER_PATH = os.path.join(MODEL_DIR, "autoencoder_final.h5")
 SCALER_PATH = os.path.join(MODEL_DIR, "scaler.pkl")
 ISOFOREST_PATH = os.path.join(MODEL_DIR, "isolation_forest.pkl")
 CONFIG_PATH = os.path.join(MODEL_DIR, "config.json")
@@ -60,54 +61,71 @@ FEATURE_NAMES_PATH = os.path.join(MODEL_DIR, "feature_names.json")
 S3_BUCKET = os.environ.get("S3_BUCKET", "battery-ml-results-070872471952")
 S3_PREFIX = os.environ.get("S3_PREFIX", "battery-reports/")
 
+# Local Testing Mode - set LOCAL_REPORTS_DIR env var to save locally instead of S3
+LOCAL_REPORTS_DIR = os.environ.get("LOCAL_REPORTS_DIR", None)  # e.g., "./reports"
+if LOCAL_REPORTS_DIR:
+    print(f"[INFO] LOCAL TESTING MODE: Saving reports to {LOCAL_REPORTS_DIR}")
+    os.makedirs(LOCAL_REPORTS_DIR, exist_ok=True)
+
 # ============ LOAD MODELS ============
 print("Loading models...")
 
 # Build autoencoder from scratch (model was trained with Keras 3.x, we use TF 2.x)
-def build_autoencoder(input_dim=14):
-    """Rebuild the autoencoder architecture."""
+def build_autoencoder(input_dim=28):
+    """Rebuild the autoencoder architecture matching autoencoder_final.h5.
+    Architecture: 28 → 18 → 9 → 4 (bottleneck) → 9 → 18 → 28
+    """
     model = tf.keras.Sequential([
-        tf.keras.layers.Dense(32, activation=None, input_dim=input_dim),
-        tf.keras.layers.BatchNormalization(),
-        tf.keras.layers.LeakyReLU(alpha=0.2),
-        tf.keras.layers.Dropout(0.25),
+        # Encoder
+        tf.keras.layers.Dense(18, activation=None, input_dim=input_dim, name='dense'),
+        tf.keras.layers.BatchNormalization(name='batch_normalization'),
+        tf.keras.layers.LeakyReLU(alpha=0.2, name='leaky_re_lu'),
+        tf.keras.layers.Dropout(0.25, name='dropout'),
         
-        tf.keras.layers.Dense(16),
-        tf.keras.layers.BatchNormalization(),
-        tf.keras.layers.LeakyReLU(alpha=0.2),
-        tf.keras.layers.Dropout(0.25),
+        tf.keras.layers.Dense(9, name='dense_1'),
+        tf.keras.layers.BatchNormalization(name='batch_normalization_1'),
+        tf.keras.layers.LeakyReLU(alpha=0.2, name='leaky_re_lu_1'),
+        tf.keras.layers.Dropout(0.25, name='dropout_1'),
         
-        tf.keras.layers.Dense(8),
-        tf.keras.layers.BatchNormalization(),
-        tf.keras.layers.LeakyReLU(alpha=0.2),
+        # Bottleneck
+        tf.keras.layers.Dense(4, name='dense_2'),
+        tf.keras.layers.BatchNormalization(name='batch_normalization_2'),
+        tf.keras.layers.LeakyReLU(alpha=0.2, name='leaky_re_lu_2'),
         
         # Decoder
-        tf.keras.layers.Dense(16),
-        tf.keras.layers.BatchNormalization(),
-        tf.keras.layers.LeakyReLU(alpha=0.2),
-        tf.keras.layers.Dropout(0.25),
+        tf.keras.layers.Dense(9, name='dense_3'),
+        tf.keras.layers.BatchNormalization(name='batch_normalization_3'),
+        tf.keras.layers.LeakyReLU(alpha=0.2, name='leaky_re_lu_3'),
+        tf.keras.layers.Dropout(0.25, name='dropout_2'),
         
-        tf.keras.layers.Dense(32),
-        tf.keras.layers.BatchNormalization(),
-        tf.keras.layers.LeakyReLU(alpha=0.2),
-        tf.keras.layers.Dropout(0.25),
-        
-        tf.keras.layers.Dense(input_dim)
+        tf.keras.layers.Dense(18, name='dense_4'),
+        tf.keras.layers.Dense(input_dim, name='dense_5')
     ])
     model.compile(optimizer='adam', loss='mse')
     return model
 
 if TF_AVAILABLE:
-    print("Building autoencoder architecture...")
-    autoencoder = build_autoencoder(14)
-
-    print("Loading weights from saved model...")
+    print("Loading autoencoder model from disk...")
     try:
-        # Try to load just the weights
-        autoencoder.load_weights(AUTOENCODER_PATH)
+        # Try to load the full model first
+        autoencoder = tf.keras.models.load_model(AUTOENCODER_PATH, compile=False)
+        autoencoder.compile(optimizer='adam', loss='mse')
+        print(f"[OK] Loaded complete model from {AUTOENCODER_PATH}")
+        print(f"  Input shape: {autoencoder.input_shape}")
+        print(f"  Output shape: {autoencoder.output_shape}")
     except Exception as e:
-        print(f"[WARN] Could not load weights from HDF5: {str(e)}")
-        print("Will use model for inference only without pre-trained weights")
+        print(f"[INFO] Could not load full model: {str(e)[:100]}")
+        print("Building autoencoder architecture (28 → 18 → 9 → 4 → 9 → 18 → 28)...")
+        autoencoder = build_autoencoder(28)
+
+        print("Loading weights from saved model...")
+        try:
+            # Try to load just the weights
+            autoencoder.load_weights(AUTOENCODER_PATH)
+            print("[OK] Weights loaded successfully")
+        except Exception as e2:
+            print(f"[WARN] Could not load weights from HDF5: {str(e2)}")
+            print("Will use model for inference only without pre-trained weights")
 else:
     autoencoder = None
 
@@ -307,6 +325,11 @@ def build_features(items: list) -> Tuple[np.ndarray, pd.DataFrame]:
     if df.empty:
         raise ValueError("No valid data after transformation")
     
+    # Check if we have enough data (minimum 3 points for basic feature computation)
+    min_samples_required = 3
+    if len(df) < min_samples_required:
+        raise ValueError(f"Not enough data points to compute features. Got {len(df)}, need at least {min_samples_required}")
+    
     # Sort by timestamp
     df = df.sort_values("ts")
     
@@ -318,30 +341,58 @@ def build_features(items: list) -> Tuple[np.ndarray, pd.DataFrame]:
     df["delta_t"] = df["ts_dt"].diff().dt.total_seconds()
     df.loc[df["delta_t"] == 0, "delta_t"] = np.nan
 
+    # Diff features - current
+    df["current_diff"] = df["current"].diff()
+    df["current_diff_abs"] = df["current_diff"].abs()
+    df["current_pct_change"] = df["current"].pct_change().replace([np.inf, -np.inf], 0).fillna(0)
+    
+    # Diff features - temperature
+    df["temperature_diff"] = df["temperature"].diff()
+    df["temperature_diff_abs"] = df["temperature_diff"].abs()
+    df["temperature_pct_change"] = df["temperature"].pct_change().replace([np.inf, -np.inf], 0).fillna(0)
+
+    # Adaptive rolling window based on data size (minimum 2)
+    roll_win = max(2, min(ROLL_WIN, len(df) // 3))
+    
     # Rolling features - current
-    df["current_roll_mean"] = df["current"].rolling(ROLL_WIN).mean()
-    df["current_roll_std"] = df["current"].rolling(ROLL_WIN).std()
-    df["current_roll_min"] = df["current"].rolling(ROLL_WIN).min()
-    df["current_roll_max"] = df["current"].rolling(ROLL_WIN).max()
+    df["current_roll_mean"] = df["current"].rolling(roll_win, min_periods=1).mean()
+    df["current_roll_std"] = df["current"].rolling(roll_win, min_periods=1).std().fillna(0)
+    df["current_roll_min"] = df["current"].rolling(roll_win, min_periods=1).min()
+    df["current_roll_max"] = df["current"].rolling(roll_win, min_periods=1).max()
+    df["current_deviation"] = (df["current"] - df["current_roll_mean"]).abs()
 
     # Rolling features - temperature
-    df["temp_roll_mean"] = df["temperature"].rolling(ROLL_WIN).mean()
-    df["temp_roll_std"] = df["temperature"].rolling(ROLL_WIN).std()
+    df["temperature_roll_mean"] = df["temperature"].rolling(roll_win, min_periods=1).mean()
+    df["temperature_roll_std"] = df["temperature"].rolling(roll_win, min_periods=1).std().fillna(0)
+    df["temperature_roll_min"] = df["temperature"].rolling(roll_win, min_periods=1).min()
+    df["temperature_roll_max"] = df["temperature"].rolling(roll_win, min_periods=1).max()
+    df["temperature_deviation"] = (df["temperature"] - df["temperature_roll_mean"]).abs()
 
-    # Rates
+    # Rate features
     df["current_rate"] = df["current"].diff() / df["delta_t"]
-    df["temp_rate"] = df["temperature"].diff() / df["delta_t"]
+    df["temperature_rate"] = df["temperature"].diff() / df["delta_t"]
+    
+    # Volatility features
+    df["current_volatility"] = df["current"].rolling(ROLL_WIN).std() / df["current_roll_mean"].replace(0, np.nan)
+    df["temperature_volatility"] = df["temperature"].rolling(ROLL_WIN).std() / df["temperature_roll_mean"].replace(0, np.nan)
+    
+    # Time-based features
+    df["hour"] = df["ts_dt"].dt.hour
+    df["minute"] = df["ts_dt"].dt.minute
+    df["day_of_week"] = df["ts_dt"].dt.dayofweek
+    df["is_weekend"] = (df["day_of_week"] >= 5).astype(int)
+    df["hour_sin"] = np.sin(2 * np.pi * df["hour"] / 24)
+    df["hour_cos"] = np.cos(2 * np.pi * df["hour"] / 24)
 
-    # Lag features
-    df["current_lag1"] = df["current"].shift(1)
-    df["temp_lag1"] = df["temperature"].shift(1)
-
-    # Ratio & product
-    df["current_temp_ratio"] = df["current"] / df["temperature"].replace(0, np.nan)
-    df["current_temp_product"] = df["current"] * df["temperature"]
-
-    # Keep only rows with all features
-    df = df.dropna(subset=feature_names)
+    # Fill NaN values from diff operations with 0 (first row will have 0 diff)
+    for col in feature_names:
+        if col in df.columns:
+            df[col] = df[col].fillna(0)
+    
+    # Keep only rows with all required features (should all exist now after filling)
+    if not all(col in df.columns for col in feature_names):
+        missing = [col for col in feature_names if col not in df.columns]
+        raise ValueError(f"Missing required features: {missing}")
 
     if df.empty:
         raise ValueError("Not enough data points to compute features")
@@ -355,7 +406,8 @@ def build_features(items: list) -> Tuple[np.ndarray, pd.DataFrame]:
 
 def classify_anomalies(recon_errors: np.ndarray, iso_preds: np.ndarray, 
                       base_stats: pd.DataFrame) -> Tuple[Dict, list]:
-    """Classify anomalies by severity."""
+    """Classify anomalies by severity. Only count actual anomalies detected by autoencoder.
+    Isolation Forest is informational only since it's trained on lab data."""
     counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
     severities = []
 
@@ -365,10 +417,11 @@ def classify_anomalies(recon_errors: np.ndarray, iso_preds: np.ndarray,
         curr = base_stats.loc[i, "current"]
         temp = base_stats.loc[i, "temperature"]
 
+        # Only use autoencoder for anomaly detection (trained on lab data, but more robust)
         is_auto_anom = re > ae_threshold
-        severity = "low"
-
-        if iso_anom or is_auto_anom:
+        
+        # Only classify if autoencoder detected an anomaly
+        if is_auto_anom:
             temp_uc = temp_thr.get("upper_critical", 80)
             temp_uw = temp_thr.get("upper_warning", 70)
             curr_uc = current_thr.get("upper_critical", 100)
@@ -380,9 +433,12 @@ def classify_anomalies(recon_errors: np.ndarray, iso_preds: np.ndarray,
                 severity = "high"
             else:
                 severity = "medium"
-
-        severities.append(severity)
-        counts[severity] += 1
+            
+            severities.append(severity)
+            counts[severity] += 1
+        else:
+            # Not an anomaly - don't count it
+            severities.append("normal")
 
     return counts, severities
 
@@ -403,51 +459,166 @@ def get_overall_status(counts: Dict) -> str:
 
 
 def generate_visualization(result: Dict, device_id: str) -> io.BytesIO:
-    """Generate anomaly visualization chart."""
+    """Generate a full semicircle gauge chart with count-based zones (5 equal zones)."""
+    from matplotlib.patches import Wedge, Circle
+    
     anomalies = result["anomalies"]
-    status = result["status"]
-
-    labels = list(anomalies.keys())
-    values = [anomalies.get(k, 0) for k in labels]
-    colors = ["#d32f2f", "#f57c00", "#fbc02d", "#388e3c"]
-
-    fig, ax = plt.subplots(figsize=(8, 5), facecolor='white')
-    bars = ax.bar(labels, values, color=colors, edgecolor='black', linewidth=1.5)
+    total_samples = result.get("total_samples", 0)
+    total_anomalies = sum(anomalies.values())
     
-    ax.set_title(f"Battery Anomaly Detection - {device_id}", fontsize=14, fontweight='bold', pad=20)
-    ax.set_ylabel("Count", fontsize=12, fontweight='bold')
-    ax.set_xlabel("Severity Level", fontsize=12, fontweight='bold')
+    # Determine status and color based on anomaly count (matching zone colors exactly)
+    if total_anomalies >= 50:
+        color = "#DC143C"  # Dark Red (matches zone)
+        status = "DANGER ⚠"
+    elif total_anomalies >= 30:
+        color = "#FF8C00"  # Orange (matches zone)
+        status = "CAUTION ▲"
+    elif total_anomalies >= 15:
+        color = "#DAA520"  # Dark Yellow/Goldenrod (matches zone)
+        status = "WARNING !"
+    elif total_anomalies >= 5:
+        color = "#90EE90"  # Light Green (matches zone)
+        status = "NORMAL"
+    else:
+        color = "#4CAF50"  # Green (matches zone)
+        status = "SAFE ✔"
     
-    # Add value labels on bars
-    for bar in bars:
-        height = bar.get_height()
-        if height > 0:
-            ax.text(bar.get_x() + bar.get_width()/2, height,
-                   f'{int(height)}',
-                   ha='center', va='bottom', fontweight='bold', fontsize=11)
-
-    # Add status text
-    status_color = {
-        "Immediate Action Required": "#d32f2f",
-        "Degradation Accelerating": "#f57c00",
-        "Moderate Irregularities": "#fbc02d",
-        "Stable": "#388e3c"
-    }
+    # Create figure
+    fig, ax = plt.subplots(figsize=(6, 5), facecolor='white')
     
-    ax.text(0.98, 0.97, f"Status: {status}", 
-            transform=ax.transAxes,
-            fontsize=12, fontweight='bold',
-            color='white',
-            bbox=dict(boxstyle='round', facecolor=status_color.get(status, '#333'), alpha=0.8),
-            ha='right', va='top')
-
-    ax.grid(axis='y', alpha=0.3, linestyle='--')
-    ax.set_ylim(0, max(values) * 1.15 if values else 1)
+    # Axis setup
+    ax.set_xlim(-1.3, 1.3)
+    ax.set_ylim(-0.9, 1.3)
+    ax.set_aspect("equal")
+    ax.axis("off")
     
-    fig.tight_layout()
+    # Calculate active angle based on anomaly count
+    # Map count to angle: 0 = 180°, 100 = 0° (scale: 0-100 count → 180-0 degrees)
+    max_count = 100
+    clamped_count = min(total_anomalies, max_count)
+    active_angle = 180 - (clamped_count * 180 / max_count)
     
+    # Draw black background for entire gauge (unfilled portion)
+    black_background = Wedge(
+        center=(0, 0),
+        r=1,
+        theta1=0,
+        theta2=180,
+        width=0.28,
+        facecolor='#2C2C2C',  # Dark gray/black
+        edgecolor='#666666',
+        linewidth=1,
+    )
+    ax.add_patch(black_background)
+    
+    # Draw zone boundary lines (thin white lines at 36° intervals)
+    zone_boundaries = [144, 108, 72, 36]  # Angles for zone divisions
+    for boundary_angle in zone_boundaries:
+        angle_rad = np.radians(boundary_angle)
+        # Draw thin line from inner to outer radius
+        x1 = 0.72 * np.cos(angle_rad)
+        y1 = 0.72 * np.sin(angle_rad)
+        x2 = 1.0 * np.cos(angle_rad)
+        y2 = 1.0 * np.sin(angle_rad)
+        ax.plot([x1, x2], [y1, y2], color='#444444', linewidth=1, zorder=2)
+    
+    # Active arc (filled from 0 to current count with zone color)
+    active_wedge = Wedge(
+        center=(0, 0),
+        r=1,
+        theta1=active_angle,
+        theta2=180,
+        width=0.28,
+        facecolor=color,
+        edgecolor='white',
+        linewidth=2,
+        alpha=1,
+    )
+    ax.add_patch(active_wedge)
+    
+    # Needle
+    needle_length = 0.62
+    needle_x = needle_length * np.cos(np.radians(active_angle))
+    needle_y = needle_length * np.sin(np.radians(active_angle))
+    
+    ax.plot([0, needle_x], [0, needle_y],
+            linewidth=2, color="black", zorder=4)
+    
+    center_circle = Circle((0, 0), 0.07, color="black", zorder=5)
+    ax.add_patch(center_circle)
+    
+    # Device Name at top
+    ax.text(
+        0, 1.20,
+        device_id,
+        ha="center",
+        fontsize=14,
+        fontweight="bold"
+    )
+    
+    # Anomalies count inside dial (large text)
+    ax.text(
+        0, 0.30,
+        f"{total_anomalies}",
+        ha="center",
+        fontsize=32,
+        fontweight="bold",
+        color=color
+    )
+    
+    ax.text(
+        0, 0.12,
+        "ANOMALIES",
+        ha="center",
+        fontsize=10,
+        color="gray"
+    )
+    
+    # Status below dial
+    ax.text(
+        0, -0.20,
+        status,
+        ha="center",
+        fontsize=18,
+        fontweight="bold",
+        color=color,
+        bbox=dict(facecolor="white", edgecolor="none", pad=2),
+        zorder=10
+    )
+    
+    # Detailed Stats (stacked below status)
+    ax.text(
+        0, -0.45,
+        f"Samples: {total_samples}",
+        ha="center",
+        fontsize=10,
+        color="gray"
+    )
+    
+    ax.text(
+        0, -0.55,
+        f"Anomalies: {total_anomalies}",
+        ha="center",
+        fontsize=10,
+        color="gray"
+    )
+    
+    # Tick labels at zone boundaries (count values: 0, 5, 15, 30, 50, 100)
+    tick_values = [0, 5, 15, 30, 50, 100]
+    for val in tick_values:
+        # Map count to angle
+        tick_angle = 180 - (val * 180 / max_count)
+        x = 1.1 * np.cos(np.radians(tick_angle))
+        y = 1.1 * np.sin(np.radians(tick_angle))
+        ax.text(x, y, str(val),
+                ha="center", va="center",
+                fontsize=7)
+    
+    plt.tight_layout()
+    
+    # Save to BytesIO
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=100, bbox_inches='tight')
+    fig.savefig(buf, format='png', dpi=120, bbox_inches='tight', facecolor='white')
     plt.close(fig)
     buf.seek(0)
     
@@ -455,9 +626,26 @@ def generate_visualization(result: Dict, device_id: str) -> io.BytesIO:
 
 
 def upload_to_s3(buf: io.BytesIO, device_id: str, result: Dict) -> Tuple[str, str]:
-    """Upload visualization to S3 and return key and URL."""
+    """Upload visualization to S3 (or save locally for testing) and return key and URL."""
     # Use fixed filename instead of timestamp so frontend can always find it
     filename = "battery_health_report.png"
+    
+    # If LOCAL_REPORTS_DIR is set, save locally instead of S3
+    if LOCAL_REPORTS_DIR:
+        device_dir = os.path.join(LOCAL_REPORTS_DIR, device_id)
+        os.makedirs(device_dir, exist_ok=True)
+        filepath = os.path.join(device_dir, filename)
+        
+        with open(filepath, 'wb') as f:
+            f.write(buf.getvalue())
+        
+        # Return local HTTP URL for localhost server
+        local_url = f"http://localhost:8000/api/v1/reports/{device_id}/{filename}"
+        print(f"[LOCAL] Saved to: {filepath}")
+        print(f"[LOCAL] Accessible at: {local_url}")
+        return filepath, local_url
+    
+    # Otherwise upload to S3
     key = f"{S3_PREFIX.rstrip('/')}/{device_id}/{filename}"
 
     print(f"Uploading to S3: {key}")
@@ -563,13 +751,36 @@ def run_inference_pipeline(device_id: str, api_url: Optional[str] = None,
     X_scaled = scaler.transform(X_raw)
 
     # Step 4: Autoencoder inference (optional)
+    global ae_threshold  # Declare at top of function before use
     if TF_AVAILABLE and autoencoder is not None:
         print("Running autoencoder...")
         recon = autoencoder.predict(X_scaled, verbose=0)
         recon_errors = np.mean(np.square(X_scaled - recon), axis=1)
         print(f"[OK] Reconstruction error range: [{recon_errors.min():.4f}, {recon_errors.max():.4f}]")
-        print(f"  - Threshold: {ae_threshold:.4f}")
-        print(f"  - Anomalies detected: {np.sum(recon_errors > ae_threshold)}/{len(recon_errors)}\n")
+        print(f"  - Mean error: {recon_errors.mean():.4f}, Median: {np.median(recon_errors):.4f}")
+        
+        # Adaptive threshold approach:
+        # 1. Check if median error is significantly higher than training threshold
+        # 2. If yes, use percentile-based (top 15-20% flagged)
+        # 3. If no, use training threshold
+        median_error = np.median(recon_errors)
+        training_threshold = ae_threshold  # 0.20 from config
+        
+        if median_error > training_threshold * 2.0:
+            # Data distribution very different from training - use percentile
+            adaptive_threshold = np.percentile(recon_errors, 85)
+            print(f"  - Using adaptive threshold (85th percentile): {adaptive_threshold:.4f}")
+            print(f"  - Reason: Median error ({median_error:.4f}) >> training threshold ({training_threshold:.4f})")
+        else:
+            # Data similar to training - use training threshold 
+            adaptive_threshold = training_threshold
+            print(f"  - Using training threshold: {adaptive_threshold:.4f}")
+        
+        # Update threshold for classification
+        ae_threshold = adaptive_threshold
+        
+        ae_anomalies = np.sum(recon_errors > ae_threshold)
+        print(f"  - Anomalies detected: {ae_anomalies}/{len(recon_errors)} ({100*ae_anomalies/len(recon_errors):.1f}%)\n")
     else:
         print("TensorFlow not available; skipping autoencoder. Using zeros for reconstruction error.")
         recon_errors = np.zeros(X_scaled.shape[0])
@@ -578,16 +789,23 @@ def run_inference_pipeline(device_id: str, api_url: Optional[str] = None,
     print("Running isolation forest...")
     iso_preds = iso_forest.predict(X_scaled)
     iso_anomalies = np.sum(iso_preds == -1)
-    print(f"[OK] Isolation Forest anomalies: {iso_anomalies}/{len(iso_preds)}\n")
+    print(f"[OK] Isolation Forest anomalies: {iso_anomalies}/{len(iso_preds)}")
+    print(f"  - Normal samples: {np.sum(iso_preds == 1)}")
+    print(f"  - Anomalous samples: {iso_anomalies}\n")
 
     # Step 6: Classify
     counts, severities = classify_anomalies(recon_errors, iso_preds, base_stats)
     status = get_overall_status(counts)
+    
+    # Calculate total anomalies for result dict
+    total_anomalies = sum(counts.values())
 
     result = {
         "device_id": device_id,
         "status": status,
         "anomalies": counts,
+        "total_samples": len(X_scaled),  # Number of samples analyzed
+        "total_anomalies": total_anomalies,  # Sum of all anomaly counts
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "data_points": len(items)
     }
