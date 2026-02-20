@@ -40,19 +40,32 @@ export async function triggerInference(request: InferenceRequest): Promise<Infer
   // Use direct API path (works for localhost and ECS)
   const url = `${ML_API_URL}/api/v1/inference/trigger`;
   
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(request),
-  });
+  console.log('🚀 Triggering inference:', { url, isDev, ML_API_URL, request });
+  
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    });
 
-  if (!response.ok) {
-    throw new Error(`Failed to trigger inference: ${response.statusText}`);
+    console.log('📡 Response received:', { status: response.status, ok: response.ok, statusText: response.statusText });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Error response:', errorText);
+      throw new Error(`Failed to trigger inference: ${response.status} ${response.statusText} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log('✅ Success:', data);
+    return data;
+  } catch (error) {
+    console.error('❌ Fetch failed:', error);
+    throw error;
   }
-
-  return response.json();
 }
 
 /**

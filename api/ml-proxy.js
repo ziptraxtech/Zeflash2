@@ -37,7 +37,9 @@ export default async function handler(req, res) {
       originalUrl: req.url,
       extractedPath: path,
       targetUrl: targetUrl,
-      backend: ML_BACKEND_URL
+      backend: ML_BACKEND_URL,
+      hasBody: !!req.body,
+      bodyType: typeof req.body
     });
 
     const options = {
@@ -48,11 +50,20 @@ export default async function handler(req, res) {
       }
     };
     
+    // Handle request body
     if ((req.method === 'POST' || req.method === 'PUT') && req.body) {
       options.body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+      console.log('📦 Request body:', options.body);
     }
     
     const response = await fetch(targetUrl, options);
+    
+    console.log('📡 Backend response:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      contentType: response.headers.get('content-type')
+    });
     
     // Handle image responses
     const contentType = response.headers.get('content-type');
@@ -64,15 +75,21 @@ export default async function handler(req, res) {
     
     // Handle JSON responses
     const data = await response.json();
-    console.log(`✅ Response status: ${response.status}`);
+    console.log(`✅ Response data:`, data);
     return res.status(response.status).json(data);
     
   } catch (error) {
-    console.error('❌ ML Proxy error:', error);
+    console.error('❌ ML Proxy error:', {
+      message: error.message,
+      stack: error.stack,
+      backend: ML_BACKEND_URL,
+      envVarSet: !!process.env.VITE_ML_BACKEND_URL
+    });
     return res.status(500).json({ 
       error: 'Cannot reach ML backend server',
       message: error.message,
-      backend: process.env.VITE_ML_BACKEND_URL || 'Not configured'
+      backend: process.env.VITE_ML_BACKEND_URL ? 'Configured' : 'Not configured (using localhost fallback)',
+      hint: 'Check Vercel environment variable VITE_ML_BACKEND_URL'
     });
   }
 }
