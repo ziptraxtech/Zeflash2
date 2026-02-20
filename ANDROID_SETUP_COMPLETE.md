@@ -1,4 +1,4 @@
-# Zeflash Android App - Setup Complete! 🎉
+# Zeflash2.0 Android App - Setup Complete! 🎉
 
 ## ✅ What's Been Done
 
@@ -7,7 +7,7 @@
 - Dependencies added to `package.json`
 
 ### 2. Project Configuration ✓
-- **App Name**: Zeflash
+- **App Name**: Zeflash2.0
 - **Package ID**: com.ziptraxtech.zeflash
 - **App Type**: WebView wrapper loading live website
 - **Configuration File**: `capacitor.config.ts`

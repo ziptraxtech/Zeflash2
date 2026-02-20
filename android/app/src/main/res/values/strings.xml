@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Zeflash</string>
-    <string name="title_activity_main">Zeflash</string>
+    <string name="app_name">Zeflash2.0</string>
+    <string name="title_activity_main">Zeflash2.0</string>
     <string name="package_name">com.ziptraxtech.zeflash</string>
     <string name="custom_url_scheme">com.ziptraxtech.zeflash</string>
 </resources>

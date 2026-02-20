@@ -17,12 +17,15 @@ from pydantic import BaseModel
 import requests
 from dotenv import load_dotenv
 
+from fastapi.responses import FileResponse
+
 # Load environment variables from .env file
 load_dotenv()
 
 # ============ Configuration ============
 TOKEN_ENDPOINT = os.environ.get("TOKEN_ENDPOINT", "https://cms.charjkaro.in/admin/api/v1/zipbolt/token")
 API_BASE_URL = os.environ.get("API_BASE_URL", "https://uat.cms.gaadin.live/commands/secure/api/v1/get/charger/time_lapsed")
+LOCAL_REPORTS_DIR = os.environ.get("LOCAL_REPORTS_DIR", None)
 
 # ============ FastAPI App ============
 app = FastAPI(
@@ -44,7 +47,7 @@ app.add_middleware(
 class InferenceRequest(BaseModel):
     evse_id: str
     connector_id: int
-    limit: int = 60
+    limit: int = 100
 
 class InferenceResponse(BaseModel):
     job_id: str
@@ -113,7 +116,7 @@ async def run_ml_inference_task(job_id: str, evse_id: str, connector_id: int, li
             device_id,
             "--api-url", api_url,
             "--auth-token", auth_token,
-            "--auth-scheme", "basic",  # CMS API uses basic auth
+            "--auth-scheme", "Bearer",  # JWT token requires Bearer auth
             "--limit", str(limit)
         ]
         
@@ -254,6 +257,20 @@ async def get_job_result(job_id: str):
         "status": job.status,
         "result": job.result
     }
+
+@app.get("/api/v1/reports/{device_id}/battery_health_report.png")
+@app.head("/api/v1/reports/{device_id}/battery_health_report.png")
+async def get_local_report_image(device_id: str):
+    """Serve locally saved report images for testing (supports GET and HEAD methods)"""
+    if not LOCAL_REPORTS_DIR:
+        raise HTTPException(status_code=404, detail="Local reports not enabled")
+    
+    image_path = os.path.join(LOCAL_REPORTS_DIR, device_id, "battery_health_report.png")
+    
+    if not os.path.exists(image_path):
+        raise HTTPException(status_code=404, detail="Report image not found")
+    
+    return FileResponse(image_path, media_type="image/png")
 
 # ============ Run Server ============
 if __name__ == "__main__":

@@ -22,24 +22,20 @@
           "value": "us-east-1"
         },
         {
-          "name": "BATTERY_TABLE_NAME",
-          "value": "device4"
-        },
-        {
-          "name": "MODEL_DIR",
-          "value": "models"
-        },
-        {
-          "name": "DEVICE_KEY_NAME",
-          "value": "device_id"
-        },
-        {
-          "name": "RESULTS_BUCKET_NAME",
+          "name": "S3_BUCKET",
           "value": "battery-ml-results-070872471952"
         },
         {
-          "name": "RESULTS_PREFIX",
+          "name": "S3_PREFIX",
           "value": "battery-reports/"
+        },
+        {
+          "name": "TOKEN_ENDPOINT",
+          "value": "https://cms.charjkaro.in/admin/api/v1/zipbolt/token"
+        },
+        {
+          "name": "API_BASE_URL",
+          "value": "https://uat.cms.gaadin.live/commands/secure/api/v1/get/charger/time_lapsed"
         }
       ],
       "logConfiguration": {
@@ -50,6 +46,13 @@
           "awslogs-region": "us-east-1",
           "awslogs-stream-prefix": "ecs"
         }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
       }
     }
   ]

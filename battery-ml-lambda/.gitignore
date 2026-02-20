@@ -1,3 +1,4 @@
+# Python
 .vercel
 .env
 __pycache__/
@@ -8,3 +9,57 @@ __pycache__/
 env/
 venv/
 .venv/
+*.egg-info/
+dist/
+build/
+
+# Sample/Test Output Files
+sample_gauges/
+zeflash-func.zip
+local_data.json
+
+# Development/Debug Scripts (keep in repo but not critical)
+# Uncomment if you want to exclude from GitHub:
+# check_*.py
+# convert_model.py
+# debug_results.py
+# fix_*.py
+# generate_*.py
+# rebuild_model.py
+# test_*.py
+# verify_*.py
+# local-config.py
+
+# Old/Unused Code
+Inference_zipbolt_notUsed.py
+app_dev.py
+inference_dev.py
+
+# Deployment Scripts (optional - keep for reference)
+# deploy-*.sh
+# deploy-*.ps1
+# start-dev-*.sh
+# start-dev-*.ps1
+# setup-*.sh
+# setup-*.ps1
+
+# Temporary Files
+ec2-instance-info.txt
+policy-temp.json
+cors-temp.json
+test-bucket-policy.json
+test-cors-config.json
+
+# Old Model Files (keep only autoencoder_final.h5)
+models/ae_best.h5
+models/memory_samples.pkl
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

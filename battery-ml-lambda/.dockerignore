@@ -1,0 +1,30 @@
+# Exclude local environment files from Docker image
+.env
+.env.local
+.env.*
+
+# Exclude local reports directory
+reports/
+*.png
+*.jpg
+
+# Exclude Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Exclude Git
+.git/
+.gitignore
+
+# Exclude documentation
+*.md
+!requirements.txt
+
+# Exclude AWS/deployment files  
+task-definition*.json
+*.ps1
+*.sh
+.aws/

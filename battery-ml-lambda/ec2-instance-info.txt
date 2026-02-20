@@ -1,6 +1,0 @@
-Instance ID: i-0a47ac806049df62e
-Public IP: 3.90.162.23
-Security Group: sg-0eee9a2cd0bcb0994
-Region: us-east-1
-API URL: http://3.90.162.23:8000
-SSH: ssh -i ~/.ssh/battery-ml-key.pem ubuntu@3.90.162.23

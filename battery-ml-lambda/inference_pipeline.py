@@ -459,24 +459,27 @@ def get_overall_status(counts: Dict) -> str:
 
 
 def generate_visualization(result: Dict, device_id: str) -> io.BytesIO:
-    """Generate a full semicircle gauge chart with count-based zones (5 equal zones)."""
+    """Generate a full semicircle gauge chart with percentage-based zones (5 equal zones)."""
     from matplotlib.patches import Wedge, Circle
     
     anomalies = result["anomalies"]
     total_samples = result.get("total_samples", 0)
     total_anomalies = sum(anomalies.values())
     
-    # Determine status and color based on anomaly count (matching zone colors exactly)
-    if total_anomalies >= 50:
+    # Calculate anomaly percentage
+    anomaly_percentage = (total_anomalies / total_samples * 100) if total_samples > 0 else 0
+    
+    # Determine status and color based on anomaly percentage (matching zone colors exactly)
+    if anomaly_percentage >= 50:
         color = "#DC143C"  # Dark Red (matches zone)
         status = "DANGER ⚠"
-    elif total_anomalies >= 30:
+    elif anomaly_percentage >= 30:
         color = "#FF8C00"  # Orange (matches zone)
-        status = "CAUTION ▲"
-    elif total_anomalies >= 15:
-        color = "#DAA520"  # Dark Yellow/Goldenrod (matches zone)
         status = "WARNING !"
-    elif total_anomalies >= 5:
+    elif anomaly_percentage >= 15:
+        color = "#DAA520"  # Dark Yellow/Goldenrod (matches zone)
+        status = "CAUTION ▲"
+    elif anomaly_percentage >= 5:
         color = "#90EE90"  # Light Green (matches zone)
         status = "NORMAL"
     else:
@@ -492,11 +495,10 @@ def generate_visualization(result: Dict, device_id: str) -> io.BytesIO:
     ax.set_aspect("equal")
     ax.axis("off")
     
-    # Calculate active angle based on anomaly count
-    # Map count to angle: 0 = 180°, 100 = 0° (scale: 0-100 count → 180-0 degrees)
-    max_count = 100
-    clamped_count = min(total_anomalies, max_count)
-    active_angle = 180 - (clamped_count * 180 / max_count)
+    # Calculate active angle based on anomaly percentage
+    # Map percentage to angle: 0% = 180°, 100% = 0° (scale: 0-100% → 180-0 degrees)
+    clamped_percentage = min(anomaly_percentage, 100)
+    active_angle = 180 - (clamped_percentage * 180 / 100)
     
     # Draw black background for entire gauge (unfilled portion)
     black_background = Wedge(
@@ -556,10 +558,10 @@ def generate_visualization(result: Dict, device_id: str) -> io.BytesIO:
         fontweight="bold"
     )
     
-    # Anomalies count inside dial (large text)
+    # Anomaly percentage inside dial (large text)
     ax.text(
         0, 0.30,
-        f"{total_anomalies}",
+        f"{anomaly_percentage:.1f}%",
         ha="center",
         fontsize=32,
         fontweight="bold",
@@ -582,7 +584,7 @@ def generate_visualization(result: Dict, device_id: str) -> io.BytesIO:
         fontsize=18,
         fontweight="bold",
         color=color,
-        bbox=dict(facecolor="white", edgecolor="none", pad=2),
+        bbox=dict(facecolor="white", edgecolor=color, linewidth=2.5, pad=8, boxstyle='round,pad=0.5'),
         zorder=10
     )
     
@@ -603,14 +605,14 @@ def generate_visualization(result: Dict, device_id: str) -> io.BytesIO:
         color="gray"
     )
     
-    # Tick labels at zone boundaries (count values: 0, 5, 15, 30, 50, 100)
+    # Tick labels at zone boundaries (percentage values: 0%, 5%, 15%, 30%, 50%, 100%)
     tick_values = [0, 5, 15, 30, 50, 100]
     for val in tick_values:
-        # Map count to angle
-        tick_angle = 180 - (val * 180 / max_count)
+        # Map percentage to angle
+        tick_angle = 180 - (val * 180 / 100)
         x = 1.1 * np.cos(np.radians(tick_angle))
         y = 1.1 * np.sin(np.radians(tick_angle))
-        ax.text(x, y, str(val),
+        ax.text(x, y, f"{val}%",
                 ha="center", va="center",
                 fontsize=7)
     

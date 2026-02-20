@@ -39,7 +39,7 @@ export const useAIReportPayment = (): UseAIReportPaymentReturn => {
           key: keyId,
           amount: amount * 100, // Convert to paise
           currency: 'INR',
-          name: 'Zeflash AI Report',
+          name: 'Zeflash2.0 AI Report',
           description: `AI Health Report for Device ${deviceId}`,
           handler: () => {
             setStatus('success');
@@ -50,7 +50,7 @@ export const useAIReportPayment = (): UseAIReportPaymentReturn => {
             }
           },
           prefill: {
-            name: 'Zeflash Customer'
+            name: 'Zeflash2.0 Customer'
           },
           notes: {
             deviceId,

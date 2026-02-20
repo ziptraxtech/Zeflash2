@@ -1,7 +1,7 @@
-# Zeflash Android APK Build Guide
+# Zeflash2.0 Android APK Build Guide
 
 ## 📱 Project Overview
-This project converts the Zeflash React website into a native Android app using Capacitor.
+This project converts the Zeflash2.0 React website into a native Android app using Capacitor.
 
 ## ⚙️ Build Environment Setup
 
@@ -27,7 +27,7 @@ This project converts the Zeflash React website into a native Android app using 
 
 ### capacitor.config.ts
 - **App ID**: `com.ziptraxtech.zeflash`
-- **App Name**: `Zeflash`
+- **App Name**: `Zeflash2.0`
 - **Server URL**: Update this with your live website URL
 - Currently set to: `https://zeflash-landing.vercel.app`
 

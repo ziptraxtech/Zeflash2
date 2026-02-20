@@ -1,4 +1,4 @@
-# Zeflash Android Release Build Guide
+# Zeflash2.0 Android Release Build Guide
 
 ## Overview
 This guide explains how to build a production-ready Android application that can be published to the Google Play Store.

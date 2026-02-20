@@ -14,20 +14,23 @@ from matplotlib.patches import Wedge, Circle
 output_dir = "sample_gauges"
 os.makedirs(output_dir, exist_ok=True)
 
-def generate_sample_gauge(total_anomalies, device_id, filename):
-    """Generate a sample gauge for given anomaly count."""
+def generate_sample_gauge(total_anomalies, total_samples, device_id, filename):
+    """Generate a sample gauge for given anomaly count and total samples."""
     
-    # Determine status and color based on anomaly count
-    if total_anomalies >= 50:
+    # Calculate anomaly percentage
+    anomaly_percentage = (total_anomalies / total_samples * 100) if total_samples > 0 else 0
+    
+    # Determine status and color based on anomaly percentage
+    if anomaly_percentage >= 50:
         color = "#DC143C"  # Dark Red
         status = "DANGER ⚠"
-    elif total_anomalies >= 30:
+    elif anomaly_percentage >= 30:
         color = "#FF8C00"  # Orange
-        status = "CAUTION ▲"
-    elif total_anomalies >= 15:
-        color = "#DAA520"  # Dark Yellow/Goldenrod
         status = "WARNING !"
-    elif total_anomalies >= 5:
+    elif anomaly_percentage >= 15:
+        color = "#DAA520"  # Dark Yellow/Goldenrod
+        status = "CAUTION ▲"
+    elif anomaly_percentage >= 5:
         color = "#90EE90"  # Light Green
         status = "NORMAL"
     else:
@@ -43,10 +46,9 @@ def generate_sample_gauge(total_anomalies, device_id, filename):
     ax.set_aspect("equal")
     ax.axis("off")
     
-    # Calculate active angle based on anomaly count
-    max_count = 100
-    clamped_count = min(total_anomalies, max_count)
-    active_angle = 180 - (clamped_count * 180 / max_count)
+    # Calculate active angle based on anomaly percentage
+    clamped_percentage = min(anomaly_percentage, 100)
+    active_angle = 180 - (clamped_percentage * 180 / 100)
     
     # Draw black background for entire gauge (unfilled portion)
     black_background = Wedge(
@@ -105,10 +107,10 @@ def generate_sample_gauge(total_anomalies, device_id, filename):
         fontweight="bold"
     )
     
-    # Anomalies count inside dial
+    # Anomaly percentage inside dial
     ax.text(
         0, 0.30,
-        f"{total_anomalies}",
+        f"{anomaly_percentage:.1f}%",
         ha="center",
         fontsize=32,
         fontweight="bold",
@@ -131,12 +133,11 @@ def generate_sample_gauge(total_anomalies, device_id, filename):
         fontsize=18,
         fontweight="bold",
         color=color,
-        bbox=dict(facecolor="white", edgecolor="none", pad=2),
+        bbox=dict(facecolor="white", edgecolor=color, linewidth=2.5, pad=8, boxstyle='round,pad=0.5'),
         zorder=10
     )
     
-    # Sample count (mock value)
-    total_samples = 60
+    # Sample count
     ax.text(
         0, -0.45,
         f"Samples: {total_samples}",
@@ -153,13 +154,13 @@ def generate_sample_gauge(total_anomalies, device_id, filename):
         color="gray"
     )
     
-    # Tick labels at zone boundaries
+    # Tick labels at zone boundaries (percentage values)
     tick_values = [0, 5, 15, 30, 50, 100]
     for val in tick_values:
-        tick_angle = 180 - (val * 180 / max_count)
+        tick_angle = 180 - (val * 180 / 100)
         x = 1.1 * np.cos(np.radians(tick_angle))
         y = 1.1 * np.sin(np.radians(tick_angle))
-        ax.text(x, y, str(val),
+        ax.text(x, y, f"{val}%",
                 ha="center", va="center",
                 fontsize=7)
     
@@ -173,24 +174,25 @@ def generate_sample_gauge(total_anomalies, device_id, filename):
     print(f"✓ Generated: {filepath}")
 
 
-# Generate samples for different scenarios
+# Generate samples for different percentage scenarios
 print("Generating sample gauge images...\n")
 
 scenarios = [
-    (0, "TestDevice_0", "01_safe_0_anomalies.png"),
-    (3, "TestDevice_1", "02_safe_3_anomalies.png"),
-    (7, "TestDevice_2", "03_normal_7_anomalies.png"),
-    (12, "TestDevice_3", "04_normal_12_anomalies.png"),
-    (18, "TestDevice_4", "05_warning_18_anomalies.png"),
-    (25, "TestDevice_5", "06_warning_25_anomalies.png"),
-    (35, "TestDevice_6", "07_caution_35_anomalies.png"),
-    (45, "TestDevice_7", "08_caution_45_anomalies.png"),
-    (60, "TestDevice_8", "09_danger_60_anomalies.png"),
-    (85, "TestDevice_9", "10_danger_85_anomalies.png"),
+    # (anomalies, total_samples, device_name, filename)
+    (0, 60, "TestDevice_0", "01_safe_0pct.png"),          # 0.0%
+    (2, 60, "TestDevice_1", "02_safe_3pct.png"),          # 3.3%
+    (4, 60, "TestDevice_2", "03_normal_7pct.png"),        # 6.7%
+    (8, 60, "TestDevice_3", "04_normal_13pct.png"),       # 13.3%
+    (10, 60, "TestDevice_4", "05_caution_17pct.png"),     # 16.7%
+    (15, 60, "TestDevice_5", "06_caution_25pct.png"),     # 25.0%
+    (20, 60, "TestDevice_6", "07_warning_33pct.png"),     # 33.3%
+    (27, 60, "TestDevice_7", "08_warning_45pct.png"),     # 45.0%
+    (33, 60, "TestDevice_8", "09_danger_55pct.png"),      # 55.0%
+    (50, 60, "TestDevice_9", "10_danger_83pct.png"),      # 83.3%
 ]
 
-for anomaly_count, device_name, filename in scenarios:
-    generate_sample_gauge(anomaly_count, device_name, filename)
+for anomaly_count, sample_count, device_name, filename in scenarios:
+    generate_sample_gauge(anomaly_count, sample_count, device_name, filename)
 
 print(f"\n✅ All sample images generated in '{output_dir}/' directory!")
 print(f"   Total: {len(scenarios)} images")

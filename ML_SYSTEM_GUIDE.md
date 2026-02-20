@@ -9,7 +9,7 @@ Your complete ML-powered battery health analysis system is now running with:
 ## What's Running
 
 ### Frontend (Port 5173)
-- Zeflash web application with charging station monitoring
+- Zeflash2.0 web application with charging station monitoring
 - Interactive battery health reports
 - "Generate AI Report" button integrated into report pages
 

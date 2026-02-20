@@ -480,8 +480,17 @@ const BatteryReport: React.FC = () => {
         }
       );
 
-      // Fetch the generated images from S3
-      const s3BucketUrl = 'https://battery-ml-results-070872471952.s3.amazonaws.com';
+      // Detect if running locally or in production
+      const ML_API_URL = import.meta.env.VITE_ML_API_URL || 'http://localhost:8000';
+      const isLocalhost = ML_API_URL.includes('localhost') || ML_API_URL.includes('127.0.0.1');
+      
+      const deviceId = `${evseId}_${connectorId}`;
+      
+      // Use local backend endpoint for localhost, S3 for production
+      const baseUrl = isLocalhost
+        ? `${ML_API_URL}/api/v1/reports/${deviceId}`
+        : `https://battery-ml-results-test.s3.us-east-1.amazonaws.com/battery-reports/${deviceId}`;
+      
       const imageNames = [
         'battery_health_report.png',
         'voltage_analysis.png',
@@ -492,7 +501,7 @@ const BatteryReport: React.FC = () => {
       ];
 
       const imageUrls = imageNames.map(name => 
-        `${s3BucketUrl}/battery-reports/${evseId}_${connectorId}/${name}?t=${Date.now()}`
+        `${baseUrl}/${name}?t=${Date.now()}`
       );
 
       setMlReport(prev => ({
@@ -523,8 +532,18 @@ const BatteryReport: React.FC = () => {
       setMlReport(prev => ({ ...prev, loading: true }));
 
       try {
-        const s3BucketUrl = 'https://battery-ml-results-070872471952.s3.amazonaws.com';
-        const testImageUrl = `${s3BucketUrl}/battery-reports/${evseId}_${connectorId}/battery_health_report.png`;
+        // Detect if running locally or in production
+        const ML_API_URL = import.meta.env.VITE_ML_API_URL || 'http://localhost:8000';
+        const isLocalhost = ML_API_URL.includes('localhost') || ML_API_URL.includes('127.0.0.1');
+        
+        const deviceId = `${evseId}_${connectorId}`;
+        
+        // Use local backend endpoint for localhost, S3 for production
+        const baseUrl = isLocalhost
+          ? `${ML_API_URL}/api/v1/reports/${deviceId}`
+          : `https://battery-ml-results-test.s3.us-east-1.amazonaws.com/battery-reports/${deviceId}`;
+        
+        const testImageUrl = `${baseUrl}/battery_health_report.png`;
 
         // Check if image exists
         const response = await fetch(testImageUrl, { method: 'HEAD' });
@@ -540,7 +559,7 @@ const BatteryReport: React.FC = () => {
           ];
 
           const imageUrls = imageNames.map(name => 
-            `${s3BucketUrl}/battery-reports/${evseId}_${connectorId}/${name}?t=${Date.now()}`
+            `${baseUrl}/${name}?t=${Date.now()}`
           );
 
           setMlReport(prev => ({

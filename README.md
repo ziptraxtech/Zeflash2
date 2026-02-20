@@ -1,6 +1,6 @@
-# Zeflash Landing Page
+# Zeflash2.0 Landing Page
 
-A modern, responsive landing page for Zeflash - Rapid AI Diagnostics & Power for EV batteries.
+A modern, responsive landing page for Zeflash2.0 - Rapid AI Diagnostics & Power for EV batteries.
 
 ## 🚀 Features
 

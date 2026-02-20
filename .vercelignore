@@ -1,0 +1,43 @@
+# Zeflash2.0 Vercel Ignore File
+
+# Local environment
+.env
+.env.local
+
+# Python environments and ML dependencies
+battery-ml-lambda/
+core/
+pandas/
+scipy/
+sklearn/
+*.zip
+
+# Android build files
+android/
+*.apk
+*.aab
+*.sh
+
+# Python files
+*.py
+__pycache__/
+*.pyc
+
+# Build scripts
+build-*.sh
+generate-*.sh
+install-*.sh
+update-*.sh
+
+# Documentation (keep only essential)
+*.md
+!README.md
+
+# Large resources
+resources/
+
+# Git
+.git/
+
+# Node modules (handled by Vercel)
+node_modules/

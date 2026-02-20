@@ -5,6 +5,7 @@ WORKDIR /app
 # System dependencies for ML & plotting
 RUN apt-get update && apt-get install -y \
     build-essential \
+    curl \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
@@ -25,4 +26,5 @@ ENV PORT=8000
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+# Use server.py (API-based inference) instead of app.py (Lambda/DynamoDB)
+CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]
