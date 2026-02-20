@@ -1,6 +1,14 @@
 // ML Backend Proxy - Vercel Serverless Function
 // Routes requests to AWS ECS backend with proper CORS handling
 
+// Vercel configuration for this serverless function
+export const config = {
+  api: {
+    bodyParser: true,
+    externalResolver: true,
+  },
+};
+
 export default async function handler(req, res) {
   // Get backend URL from environment variable
   const ML_BACKEND_URL = process.env.VITE_ML_BACKEND_URL || 'http://localhost:8000';
@@ -16,17 +24,30 @@ export default async function handler(req, res) {
   }
 
   try {
-    // In Vercel, req.url is the full path like /api/ml-proxy/api/v1/inference/trigger
-    // We need to extract everything after /api/ml-proxy
-    let path = req.url || '/';
+    // Extract path from URL or query params
+    // Vercel can pass the path in different ways:
+    // 1. req.url: /api/ml-proxy/api/v1/inference/trigger
+    // 2. req.query.path: api/v1/inference/trigger (as an array or string)
+    let path = '';
     
-    // Remove /api/ml-proxy prefix if present
-    if (path.startsWith('/api/ml-proxy')) {
-      path = path.substring('/api/ml-proxy'.length);
+    if (req.query && req.query.path) {
+      // Path from query parameter (catch-all route)
+      path = Array.isArray(req.query.path) 
+        ? '/' + req.query.path.join('/') 
+        : '/' + req.query.path;
+    } else if (req.url) {
+      // Path from URL
+      path = req.url;
+      // Remove /api/ml-proxy prefix if present
+      if (path.startsWith('/api/ml-proxy')) {
+        path = path.substring('/api/ml-proxy'.length);
+      }
     }
     
     // Ensure path starts with /
-    if (!path.startsWith('/')) {
+    if (!path || path === '/') {
+      path = '/health'; // Default to health check
+    } else if (!path.startsWith('/')) {
       path = '/' + path;
     }
     
@@ -35,6 +56,7 @@ export default async function handler(req, res) {
     console.log('🔄 ML Proxy Request:', {
       method: req.method,
       originalUrl: req.url,
+      queryPath: req.query?.path,
       extractedPath: path,
       targetUrl: targetUrl,
       backend: ML_BACKEND_URL,
