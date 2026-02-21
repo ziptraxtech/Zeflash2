@@ -38,3 +38,10 @@ android/app/*.jks
 *.keystore
 *.jks
 zeflash-release.aab
+
+# AWS Infrastructure files (DO NOT COMMIT!)
+task-definition*.json
+SECURITY_ALERT.md
+*-policy.json
+.aws/
+aws-credentials-backup/
