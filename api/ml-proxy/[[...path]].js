@@ -3,7 +3,8 @@
 
 export default async function handler(req, res) {
   // Get backend URL from environment variable
-  const ML_BACKEND_URL = process.env.VITE_ML_BACKEND_URL || 'http://localhost:8000';
+  // Try ML_BACKEND_URL first (runtime), then VITE_ML_BACKEND_URL (build-time fallback)
+  const ML_BACKEND_URL = process.env.ML_BACKEND_URL || process.env.VITE_ML_BACKEND_URL || 'http://battery-ml-alb-1652817744.us-east-1.elb.amazonaws.com';
   
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -32,7 +33,8 @@ export default async function handler(req, res) {
       extractedPath: path,
       targetUrl: targetUrl,
       backend: ML_BACKEND_URL,
-      envVarSet: !!process.env.VITE_ML_BACKEND_URL,
+      envML_BACKEND_URL: !!process.env.ML_BACKEND_URL,
+      envVITE_ML_BACKEND_URL: !!process.env.VITE_ML_BACKEND_URL,
       hasBody: !!req.body
     });
 
@@ -90,18 +92,19 @@ export default async function handler(req, res) {
       message: error.message,
       stack: error.stack,
       backend: ML_BACKEND_URL,
-      envVarSet: !!process.env.VITE_ML_BACKEND_URL
+      envML_BACKEND_URL: !!process.env.ML_BACKEND_URL,
+      envVITE_ML_BACKEND_URL: !!process.env.VITE_ML_BACKEND_URL
     });
     
     return res.status(500).json({ 
       error: 'ML Proxy Failed',
       message: error.message,
-      backend: process.env.VITE_ML_BACKEND_URL 
+      backend: process.env.ML_BACKEND_URL || process.env.VITE_ML_BACKEND_URL
         ? 'Configured (ALB)' 
-        : 'Not configured (using localhost)',
-      hint: process.env.VITE_ML_BACKEND_URL
+        : 'Using hardcoded default',
+      hint: process.env.ML_BACKEND_URL || process.env.VITE_ML_BACKEND_URL
         ? 'Check if ALB is accessible and ECS service is running'
-        : 'Set VITE_ML_BACKEND_URL in Vercel environment variables'
+        : 'Set ML_BACKEND_URL in Vercel environment variables'
     });
   }
 }
