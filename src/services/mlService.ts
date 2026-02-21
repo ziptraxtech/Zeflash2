@@ -2,9 +2,9 @@
  * ML Service - Frontend API client for Battery Health ML inference
  */
 
-// Use /api/ml-proxy in production (Vercel), localhost in development
+// Use ALB directly for testing, /api/ml-proxy in Vercel production
 const isDev = import.meta.env.DEV;
-const ML_API_URL = isDev ? 'http://localhost:8000' : '/api/ml-proxy';
+const ML_API_URL = isDev ? 'http://battery-ml-alb-1652817744.us-east-1.elb.amazonaws.com' : '/api/ml-proxy';
 
 export interface InferenceRequest {
   evse_id: string;

@@ -193,13 +193,11 @@ const ChargingStations: React.FC = () => {
       
       // Use /api/ml-proxy in production (Vercel), localhost in development
       const isDev = import.meta.env.DEV;
-      const ML_API_URL = isDev ? 'http://localhost:8000' : '/api/ml-proxy';
-      const isLocalhost = isDev;
+      const ML_API_URL = isDev ? 'http://battery-ml-alb-1652817744.us-east-1.elb.amazonaws.com' : '/api/ml-proxy';
+      const isLocalhost = false; // Always use S3 for image URLs
       
-      // Use local backend endpoint for localhost, S3 for production
-      const imageUrl = isLocalhost
-        ? `${ML_API_URL}/api/v1/reports/${deviceId}/battery_health_report.png?t=${Date.now()}`
-        : `https://battery-ml-results-test.s3.us-east-1.amazonaws.com/battery-reports/${deviceId}/battery_health_report.png?t=${Date.now()}`;
+      // Use S3 for production and testing (images are uploaded there)
+      const imageUrl = `https://battery-ml-results-test.s3.us-east-1.amazonaws.com/battery-reports/${deviceId}/battery_health_report.png?t=${Date.now()}`;
 
       // First, try to load existing image
       try {

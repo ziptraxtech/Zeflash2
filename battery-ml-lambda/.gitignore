@@ -1,6 +1,9 @@
 # Python
 .vercel
 .env
+.env.local
+.env.*.local
+!.env.example
 __pycache__/
 *.pyc
 *.pyo
@@ -12,6 +15,17 @@ venv/
 *.egg-info/
 dist/
 build/
+
+# AWS Credentials - NEVER COMMIT!
+.aws/
+credentials
+*.pem
+*.key
+*credentials*.json
+
+# Task Definitions with Secrets
+task-definition-test.json
+task-definition-prod.json
 
 # Sample/Test Output Files
 sample_gauges/

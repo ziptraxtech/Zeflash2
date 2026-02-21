@@ -105,9 +105,8 @@ async def run_ml_inference_task(job_id: str, evse_id: str, connector_id: int, li
         # Build device_id
         device_id = f"{evse_id}_{connector_id}"
         
-        # Check if AWS credentials are set
-        if not os.environ.get("AWS_ACCESS_KEY_ID") or not os.environ.get("AWS_SECRET_ACCESS_KEY"):
-            raise Exception("AWS credentials not configured. Please set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in .env file")
+        # Note: AWS credentials are automatically provided by IAM role in ECS
+        # For local development, set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in .env
         
         # Run inference_pipeline.py
         cmd = [
@@ -123,12 +122,20 @@ async def run_ml_inference_task(job_id: str, evse_id: str, connector_id: int, li
         jobs[job_id].progress = 40
         jobs[job_id].message = "Executing ML models..."
         
+        # Create subprocess environment without AWS credentials 
+        # This forces boto3 to use IAM role credentials in ECS
+        subprocess_env = os.environ.copy()
+        subprocess_env.pop('AWS_ACCESS_KEY_ID', None)
+        subprocess_env.pop('AWS_SECRET_ACCESS_KEY', None)
+        subprocess_env.pop('AWS_SESSION_TOKEN', None)
+        
         # Execute the command
         process = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            cwd=os.path.dirname(os.path.abspath(__file__))
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            env=subprocess_env
         )
         
         stdout, stderr = await process.communicate()

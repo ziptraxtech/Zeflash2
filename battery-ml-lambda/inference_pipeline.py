@@ -151,7 +151,7 @@ print("[OK] Models loaded successfully\n")
 
 # ============ FUNCTIONS ============
 
-def fetch_data_from_api(api_url: str, auth_token: Optional[str] = None, limit: int = 10, auth_scheme: str = "Bearer") -> list:
+def fetch_data_from_api(api_url: str, auth_token: Optional[str] = None, limit: int = 100, auth_scheme: str = "Bearer") -> list:
     """Fetch battery data from the active API.
 
     Parameters:
@@ -699,12 +699,12 @@ def upload_to_s3(buf: io.BytesIO, device_id: str, result: Dict) -> Tuple[str, st
     return key, url
 
 
-def build_cms_time_lapsed_url(evse_id: str, connector_id: int = 1, page: int = 1, limit: int = 10,
+def build_cms_time_lapsed_url(evse_id: str, connector_id: int = 1, page: int = 1, limit: int = 100,
                               role: str = "Admin", operator: str = "All") -> str:
     """Construct the CMS time_lapsed API URL for a specific EVSE and connector.
 
     Example endpoint:
-    https://cms.charjkaro.in/commands/secure/api/v1/get/charger/time_lapsed?role=Admin&operator=All&evse_id=032300130C03064&connector_id=1&page=1&limit=10
+    https://cms.charjkaro.in/commands/secure/api/v1/get/charger/time_lapsed?role=Admin&operator=All&evse_id=032300130C03064&connector_id=1&page=1&limit=100
     """
     base = "https://cms.charjkaro.in/commands/secure/api/v1/get/charger/time_lapsed"
     return (
@@ -714,7 +714,7 @@ def build_cms_time_lapsed_url(evse_id: str, connector_id: int = 1, page: int = 1
 
 
 def run_inference_pipeline(device_id: str, api_url: Optional[str] = None, 
-                          auth_token: Optional[str] = None, limit: int = 10, auth_scheme: str = "Bearer") -> Dict:
+                          auth_token: Optional[str] = None, limit: int = 100, auth_scheme: str = "Bearer") -> Dict:
     """Main inference pipeline."""
     print("=" * 70)
     print(f"BATTERY ML INFERENCE PIPELINE - {device_id}")
@@ -850,8 +850,8 @@ if __name__ == "__main__":
     parser.add_argument("--evse-id", help="EVSE ID to build CMS URL (e.g. 032300130C03064)")
     parser.add_argument("--connector-id", type=int, default=1, help="Connector ID (default: 1)")
     parser.add_argument("--page", type=int, default=1, help="Pagination page (default: 1)")
-    parser.add_argument("--limit", type=int, default=10,
-                       help="Number of latest documents to fetch (default: 10)")
+    parser.add_argument("--limit", type=int, default=100,
+                       help="Number of latest documents to fetch (default: 100)")
     parser.add_argument("--bucket", help="Override S3 bucket")
     
     args = parser.parse_args()
