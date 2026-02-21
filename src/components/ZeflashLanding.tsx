@@ -58,9 +58,9 @@ const ZeflashLanding: React.FC = () => {
       <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="Zeflash2.0 Logo" className="h-12 w-12 object-contain" />
+            <img src="/logo.png" alt="Zeflash Logo" className="h-12 w-12 object-contain" />
             <div className="leading-tight">
-              <div className="text-base font-bold">Zeflash2.0</div>
+              <div className="text-base font-bold">Zeflash</div>
               <div className="text-xs text-gray-500">Rapid AI Diagnostics & Power</div>
             </div>
           </div>
@@ -69,7 +69,7 @@ const ZeflashLanding: React.FC = () => {
             <SectionLink href="#features" label="Features" active={activeSection==='features'} />
             <SectionLink href="#science" label="EV Intelligence" active={activeSection==='science'} />
             <SectionLink href="#who" label="Who it's for" active={activeSection==='who'} />
-            <SectionLink href="#why" label="Why Zeflash2.0" active={activeSection==='why'} />
+            <SectionLink href="#why" label="Why Zeflash" active={activeSection==='why'} />
             <Link
               to="/plans"
               className="px-3 py-1.5 rounded-md text-sm font-semibold text-white bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 shadow-md shadow-emerald-200/30 transition-all"
@@ -105,19 +105,19 @@ const ZeflashLanding: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
             <div>
-              <p className="text-sm font-semibold text-blue-600">Zeflash2.0 </p>
+              <p className="text-sm font-semibold text-blue-600">Zeflash </p>
               <h1 className="mt-2 text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-gray-900">
-                ⚡ Zeflash2.0: Rapid AI Diagnostics & Power
+                ⚡ Zeflash: Rapid AI Diagnostics & Power
               </h1>
               <p className="mt-4 text-gray-700 text-lg">
-                Quick 20 mins EV & Battery Test, anytime you charge your EV! With Zeflash2.0, get a precise rapid battery health insight report in minutes, not hours.
+                Quick 20 mins EV & Battery Test, anytime you charge your EV! With Zeflash, get a precise rapid battery health insight report in minutes, not hours.
               </p>
               <p className="mt-2 text-gray-700">
-                Zeflash2.0 combines flash-based EV testing at Fast Chargers with ZipsureAI's battery physics-driven AI Deeptech to decode your EV's true performance, aging, and safety condition on the spot.
+                Zeflash combines flash-based EV testing at Fast Chargers with ZipsureAI's battery physics-driven AI Deeptech to decode your EV's true performance, aging, and safety condition on the spot.
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link to="/stations" className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold px-4 py-2.5 hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-200/30">
-                  <CheckCircle size={18} /> Book a Zeflash2.0 RapidTest
+                  <CheckCircle size={18} /> Book a Zeflash RapidTest
                 </Link>
                 <Link to="/plans" className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-green-600 text-white font-medium px-4 py-2.5 hover:from-emerald-600 hover:to-green-700 shadow-md shadow-emerald-200/30">
                   <Play size={18} /> Flexible Testing Plans
@@ -152,7 +152,7 @@ const ZeflashLanding: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="mb-6">
             <p className="text-sm font-semibold text-blue-600">Mobile App</p>
-            <h2 className="mt-2 text-2xl sm:text-3xl font-bold text-gray-900">Get the Zeflash2.0 app</h2>
+            <h2 className="mt-2 text-2xl sm:text-3xl font-bold text-gray-900">Get the Zeflash app</h2>
             <p className="mt-3 text-gray-700 max-w-2xl">Download the Android APK now. Play Store rollout is on the way.</p>
           </div>
           
@@ -165,7 +165,7 @@ const ZeflashLanding: React.FC = () => {
                 </div>
                 <img 
                   src="/My_QR_Code_1-1024.jpeg" 
-                  alt="Scan QR Code to Download Zeflash2.0 App" 
+                  alt="Scan QR Code to Download Zeflash App" 
                   className="w-44 h-44 sm:w-52 sm:h-52 object-contain rounded-lg"
                 />
               </div>
@@ -174,7 +174,7 @@ const ZeflashLanding: React.FC = () => {
               <div>
                 <h3 className="text-2xl font-bold text-gray-900">Scan to Download Instantly</h3>
                 <p className="mt-2 text-gray-600 leading-relaxed">
-                  Simply point your phone's camera at the QR code to download and install the Zeflash2.0 app in seconds. No app store required!
+                  Simply point your phone's camera at the QR code to download and install the Zeflash app in seconds. No app store required!
                 </p>
               </div>
               <div className="flex flex-wrap gap-3 mt-4">
@@ -229,12 +229,12 @@ const ZeflashLanding: React.FC = () => {
         </div>
       </section>
 
-      {/* What is Zeflash2.0 */}
+      {/* What is Zeflash */}
       <section id="what" className="py-12 sm:py-16 bg-white border-t border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <h2 className="text-2xl sm:text-3xl font-bold">What is Zeflash2.0?</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold">What is Zeflash?</h2>
           <p className="mt-4 text-gray-700 max-w-4xl">
-            Zeflash2.0 Rapid Diagnostics is an advanced EV battery testing platform designed for fast, field-ready health checks. Accurately measuring State of Power (SoP) and State of Function (SoF) at pack levels — helping fleets, garages, and OEMs make instant, confident decisions for servicing, second life repurposing and safe recycling!
+            Zeflash Rapid Diagnostics is an advanced EV battery testing platform designed for fast, field-ready health checks. Accurately measuring State of Power (SoP) and State of Function (SoF) at pack levels — helping fleets, garages, and OEMs make instant, confident decisions for servicing, second life repurposing and safe recycling!
           </p>
         </div>
       </section>
@@ -319,8 +319,8 @@ const ZeflashLanding: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <h2 className="text-2xl sm:text-3xl font-bold mb-6">How It Works</h2>
           <ol className="space-y-4">
-            <li className="bg-gray-50 border border-gray-200 rounded-xl p-4"><span className="font-semibold">1. Locate, Connect & Start:</span> Find Zeflash2.0-enabled EV Chargers, book a session, and start charging — no disassembly required.</li>
-            <li className="bg-gray-50 border border-gray-200 rounded-xl p-4"><span className="font-semibold">2. Analyze & Detect:</span> Zeflash2.0 performs Rapid AI Diagnostics and creates datasets for quick processing.</li>
+            <li className="bg-gray-50 border border-gray-200 rounded-xl p-4"><span className="font-semibold">1. Locate, Connect & Start:</span> Find Zeflash-enabled EV Chargers, book a session, and start charging — no disassembly required.</li>
+            <li className="bg-gray-50 border border-gray-200 rounded-xl p-4"><span className="font-semibold">2. Analyze & Detect:</span> Zeflash performs Rapid AI Diagnostics and creates datasets for quick processing.</li>
             <li className="bg-gray-50 border border-gray-200 rounded-xl p-4"><span className="font-semibold">3. Report & Recommend:</span> In minutes, AI models process your EV data and generate a detailed Rapid Health report to download.</li>
           </ol>
         </div>
@@ -331,7 +331,7 @@ const ZeflashLanding: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <h2 className="text-2xl sm:text-3xl font-bold mb-3">The Science Inside</h2>
           <p className="text-gray-700 max-w-4xl">
-            Zeflash2.0 integrates advanced AI Deeptech for electrochemical modeling, impedance testing, multi-parameter dataset analysis, and machine-learning algorithms. By reading subtle internal responses at each charging cycle, it builds a lifecycle profile — predicting degradation, aging, and thermal risks with above 90% accuracy.
+            Zeflash integrates advanced AI Deeptech for electrochemical modeling, impedance testing, multi-parameter dataset analysis, and machine-learning algorithms. By reading subtle internal responses at each charging cycle, it builds a lifecycle profile — predicting degradation, aging, and thermal risks with above 90% accuracy.
           </p>
         </div>
       </section>
