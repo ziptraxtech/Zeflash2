@@ -16,12 +16,12 @@ export default async function handler(
       return res.status(400).json({ error: 'evse_id is required' });
     }
 
-    // For demo: return the pre-generated S3 image for EVSE 032300130C03065 connector 2
+    // For demo: return a placeholder response
     // In production, this should call your Lambda/ECS service
     if (evse_id === '032300130C03065' && connector_id === 2) {
       return res.status(200).json({
-        image_url: 'https://battery-ml-results-070872471952.s3.amazonaws.com/battery-reports/032300130C03065_2/20260114T174949Z.png?AWSAccessKeyId=AKIARBACUDGIFTZVZI4C&Signature=LFXTiQ2kl1qdnaVqB0WbTCIKERc%3D&Expires=1769017791',
-        s3_url: 'https://battery-ml-results-070872471952.s3.amazonaws.com/battery-reports/032300130C03065_2/20260114T174949Z.png?AWSAccessKeyId=AKIARBACUDGIFTZVZI4C&Signature=LFXTiQ2kl1qdnaVqB0WbTCIKERc%3D&Expires=1769017791',
+        image_url: 'https://battery-ml-results-test.s3.us-east-1.amazonaws.com/battery-reports/032300130C03065_2/battery_health_report.png',
+        s3_url: 'https://battery-ml-results-test.s3.us-east-1.amazonaws.com/battery-reports/032300130C03065_2/battery_health_report.png',
         device_id: `${evse_id}_${connector_id}`,
         status: 'Immediate Action Required',
         anomalies: {
