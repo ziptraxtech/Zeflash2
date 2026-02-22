@@ -58,7 +58,7 @@ CONFIG_PATH = os.path.join(MODEL_DIR, "config.json")
 FEATURE_NAMES_PATH = os.path.join(MODEL_DIR, "feature_names.json")
 
 # S3 Configuration
-S3_BUCKET = os.environ.get("S3_BUCKET", "battery-ml-results-070872471952")
+S3_BUCKET = os.environ.get("S3_BUCKET", "battery-ml-results-test")
 S3_PREFIX = os.environ.get("S3_PREFIX", "battery-reports/")
 
 # Local Testing Mode - set LOCAL_REPORTS_DIR env var to save locally instead of S3

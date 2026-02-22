@@ -155,7 +155,7 @@ async def run_ml_inference_task(job_id: str, evse_id: str, connector_id: int, li
                 "device_id": device_id,
                 "evse_id": evse_id,
                 "connector_id": connector_id,
-                "s3_bucket": os.environ.get("S3_BUCKET", "battery-ml-results-070872471952"),
+                "s3_bucket": os.environ.get("S3_BUCKET", "battery-ml-results-test"),
                 "s3_path": f"battery-reports/{device_id}/",
                 "timestamp": datetime.now().isoformat(),
                 "stdout": stdout_str[:1000],  # First 1000 chars

@@ -20,7 +20,7 @@ LOCAL_STORAGE_DIR = os.path.join(os.path.dirname(__file__), "local_reports")
 
 # AWS (only used if USE_LOCAL_STORAGE is false)
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
-RESULTS_BUCKET = os.getenv("RESULTS_BUCKET_NAME", "battery-ml-results-070872471952")
+RESULTS_BUCKET = os.getenv("RESULTS_BUCKET_NAME", "battery-ml-results-test")
 RESULTS_PREFIX = os.getenv("RESULTS_PREFIX", "battery-reports/")
 
 # DynamoDB Configuration (only used if USE_LOCAL_DATA is false)
