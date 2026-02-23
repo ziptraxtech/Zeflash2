@@ -24,7 +24,7 @@ const ZeflashLanding: React.FC = () => {
   const apkDownloadUrl = '/apk/zeflash-latest.apk';
 
   useEffect(() => {
-    const sectionIds = ['what', 'features', 'how', 'science', 'who', 'why'];
+    const sectionIds = ['what', 'features', 'how', 'science', 'metrics', 'who', 'why'];
     let ticking = false;
 
     const onScroll = () => {
@@ -36,7 +36,7 @@ const ZeflashLanding: React.FC = () => {
             if (!el) continue;
             const rect = el.getBoundingClientRect();
             if (rect.top <= 120 && rect.bottom >= 120) {
-              current = id === 'how' ? 'science' : id;
+              current = id === 'how' ? 'how' : id === 'metrics' ? 'science' : id;
               break;
             }
           }
@@ -67,7 +67,7 @@ const ZeflashLanding: React.FC = () => {
           <nav className="hidden md:flex items-center gap-1">
             <SectionLink href="#what" label="About" active={activeSection==='what'} />
             <SectionLink href="#features" label="Features" active={activeSection==='features'} />
-            <SectionLink href="#science" label="EV Intelligence" active={activeSection==='science'} />
+            <SectionLink href="#how" label="Deeptech for EVs" active={activeSection==='how'} />
             <SectionLink href="#who" label="Who it's for" active={activeSection==='who'} />
             <SectionLink href="#why" label="Why Zeflash" active={activeSection==='why'} />
             <Link
@@ -129,11 +129,21 @@ const ZeflashLanding: React.FC = () => {
                 <div className="grid grid-cols-2 gap-4 text-center">
                   <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 hover:bg-blue-100 transition-colors">
                     <div className="text-xs text-blue-700 font-semibold">Instant Health Report</div>
-                    <div className="text-3xl font-extrabold text-blue-700 mt-1">20 min</div>
+                    <div className="text-3xl font-extrabold text-blue-700 mt-1">20 Min ✅</div>
                   </div>
                   <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 transition-colors">
-                    <div className="text-xs text-emerald-700 font-semibold">Accuracy</div>
-                    <div className="text-3xl font-extrabold text-emerald-700 mt-1">90%+</div>
+                    <div className="text-xs text-emerald-700 font-semibold">ML Accuracy</div>
+                    <div className="text-3xl font-extrabold text-emerald-700 mt-1">94.66%</div>
+                  </div>
+                  <div className="p-4 rounded-xl bg-violet-50 border border-violet-100 hover:bg-violet-100 transition-colors">
+                    <div className="text-xs text-violet-700 font-semibold">Precision</div>
+                    <div className="text-xs text-violet-600 mt-1">[Excellent True Positives]</div>
+                    <div className="text-2xl font-extrabold text-violet-700 mt-2">91.8%</div>
+                  </div>
+                  <div className="p-4 rounded-xl bg-orange-50 border border-orange-100 hover:bg-orange-100 transition-colors">
+                    <div className="text-xs text-orange-700 font-semibold">False Negative Rate</div>
+                    <div className="text-xs text-orange-600 mt-1">[Low Misdetection]</div>
+                    <div className="text-2xl font-extrabold text-orange-700 mt-2">6.1%</div>
                   </div>
                   <div className="p-4 rounded-xl bg-amber-50 border border-amber-100 col-span-2 hover:bg-amber-100 transition-colors">
                     <div className="text-xs text-amber-700 font-semibold">Outputs</div>
@@ -326,13 +336,126 @@ const ZeflashLanding: React.FC = () => {
         </div>
       </section>
 
-      {/* Science */}
-      <section id="science" className="py-12 sm:py-16 bg-gradient-to-b from-blue-50 to-white">
+      {/* Deeptech for EV's */}
+      <section id="metrics" className="py-12 sm:py-16 bg-gradient-to-b from-blue-50 to-white border-t border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-3">The Science Inside</h2>
-          <p className="text-gray-700 max-w-4xl">
-            Zeflash integrates advanced AI Deeptech for electrochemical modeling, impedance testing, multi-parameter dataset analysis, and machine-learning algorithms. By reading subtle internal responses at each charging cycle, it builds a lifecycle profile — predicting degradation, aging, and thermal risks with above 90% accuracy.
-          </p>
+          <div className="mb-8">
+            <h2 className="text-2xl sm:text-3xl font-bold mb-3">Deeptech for EVs</h2>
+            <p className="text-gray-700 max-w-4xl mb-6">
+              Zeflash integrates advanced AI Deeptech for electrochemical modeling, impedance testing, multi-parameter dataset analysis, and machine-learning algorithms. By reading subtle internal responses at each charging cycle, it builds a lifecycle profile — predicting degradation, aging, and thermal risks with above 94% accuracy.
+            </p>
+            <p className="text-gray-600">Our deep learning models undergo rigorous validation with real-world EV battery data</p>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="border-b-2 border-blue-200">
+                  <th className="text-left py-4 px-4 font-semibold text-gray-900">Metric</th>
+                  <th className="text-center py-4 px-4 font-semibold text-gray-900">Performance</th>
+                  <th className="text-center py-4 px-4 font-semibold text-gray-600">Industry Standard</th>
+                  <th className="text-center py-4 px-4 font-semibold text-gray-600">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-gray-100 hover:bg-blue-50/50 transition-colors">
+                  <td className="py-4 px-4 font-medium text-gray-900">Overall Accuracy</td>
+                  <td className="text-center py-4 px-4">
+                    <span className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-lg font-bold text-emerald-800">
+                      94.66%
+                    </span>
+                  </td>
+                  <td className="text-center py-4 px-4 text-gray-600">~ 90%</td>
+                  <td className="text-center py-4 px-4">
+                    <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold">
+                      ✓ Excellent
+                    </span>
+                  </td>
+                </tr>
+                <tr className="border-b border-gray-100 hover:bg-blue-50/50 transition-colors">
+                  <td className="py-4 px-4 font-medium text-gray-900">Precision</td>
+                  <td className="text-center py-4 px-4">
+                    <span className="inline-flex items-center gap-2 rounded-full bg-blue-100 px-3 py-1 text-lg font-bold text-blue-800">
+                      91.8%
+                    </span>
+                  </td>
+                  <td className="text-center py-4 px-4 text-gray-600">~ 85%</td>
+                  <td className="text-center py-4 px-4">
+                    <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold">
+                      ✓ Good
+                    </span>
+                  </td>
+                </tr>
+                <tr className="border-b border-gray-100 hover:bg-blue-50/50 transition-colors">
+                  <td className="py-4 px-4 font-medium text-gray-900">Recall</td>
+                  <td className="text-center py-4 px-4">
+                    <span className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-lg font-bold text-emerald-800">
+                      93.9%
+                    </span>
+                  </td>
+                  <td className="text-center py-4 px-4 text-gray-600">~ 90%</td>
+                  <td className="text-center py-4 px-4">
+                    <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold">
+                      ✓ Excellent
+                    </span>
+                  </td>
+                </tr>
+                <tr className="border-b border-gray-100 hover:bg-blue-50/50 transition-colors">
+                  <td className="py-4 px-4 font-medium text-gray-900">F1-Score</td>
+                  <td className="text-center py-4 px-4">
+                    <span className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-lg font-bold text-emerald-800">
+                      92.8%
+                    </span>
+                  </td>
+                  <td className="text-center py-4 px-4 text-gray-600">~ 88%</td>
+                  <td className="text-center py-4 px-4">
+                    <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold">
+                      ✓ Excellent
+                    </span>
+                  </td>
+                </tr>
+                <tr className="border-b border-gray-100 hover:bg-orange-50/50 transition-colors">
+                  <td className="py-4 px-4 font-medium text-gray-900">False Positive Rate</td>
+                  <td className="text-center py-4 px-4">
+                    <span className="inline-flex items-center gap-2 rounded-full bg-orange-100 px-3 py-1 text-lg font-bold text-orange-800">
+                      3.2%
+                    </span>
+                  </td>
+                  <td className="text-center py-4 px-4 text-gray-600">&lt; 5%</td>
+                  <td className="text-center py-4 px-4">
+                    <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold">
+                      ✓ Good
+                    </span>
+                  </td>
+                </tr>
+                <tr className="border-b border-gray-100 hover:bg-orange-50/50 transition-colors">
+                  <td className="py-4 px-4 font-medium text-gray-900">False Negative Rate</td>
+                  <td className="text-center py-4 px-4">
+                    <span className="inline-flex items-center gap-2 rounded-full bg-orange-100 px-3 py-1 text-lg font-bold text-orange-800">
+                      6.1%
+                    </span>
+                  </td>
+                  <td className="text-center py-4 px-4 text-gray-600">&lt; 10%</td>
+                  <td className="text-center py-4 px-4">
+                    <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold">
+                      ✓ Excellent
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="rounded-xl border border-blue-200 bg-blue-50 p-6">
+              <h3 className="font-semibold text-gray-900 mb-2">🎯 What This Means</h3>
+              <p className="text-sm text-gray-700">Our AI model delivers highly accurate predictions of battery health, degradation, and failure risks. High precision and recall ensure minimal false alarms while catching true anomalies that matter.</p>
+            </div>
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6">
+              <h3 className="font-semibold text-gray-900 mb-2">🔍 Model Validation</h3>
+              <p className="text-sm text-gray-700">Validated on diverse EV fleets with multiple battery chemistries and manufacturers. Continuously improved with real-world deployment data and latest battery degradation patterns.</p>
+            </div>
+          </div>
         </div>
       </section>
 
