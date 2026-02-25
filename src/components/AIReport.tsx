@@ -1,5 +1,6 @@
-import React, { useCallback, useMemo, useRef } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useLocation, useParams } from 'react-router-dom';
+import { useAuth } from '@clerk/clerk-react';
 import {
   ArrowLeft,
   Download,
@@ -35,9 +36,102 @@ const severityColor = (status: string) => {
 
 const AIReport: React.FC = () => {
   const { deviceId } = useParams<{ deviceId: string }>();
+  const location = useLocation();
+  const { getToken } = useAuth();
   const reportRef = useRef<HTMLDivElement | null>(null);
 
-  const backendDeviceId = useMemo(() => (deviceId ? `device${deviceId}` : 'device5'), [deviceId]);
+  // Parse evseId and connectorId from deviceId (format: evseId_connectorId)
+  const [evseId, connectorId] = useMemo(() => {
+    if (!deviceId) return ['', 1];
+    const parts = deviceId.split('_');
+    const connector = parseInt(parts.pop() || '1');
+    return [parts.join('_'), connector];
+  }, [deviceId]);
+
+  const backendDeviceId = useMemo(() => deviceId || 'unknown', [deviceId]);
+
+  const [generating, setGenerating] = useState(false);
+  const [s3Url, setS3Url] = useState<string | null>(null);
+  const [genError, setGenError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!evseId) return;
+    const fromCheckout = !!(location.state as any)?.fromCheckout;
+
+    const loadReport = async () => {
+      const token = await getToken().catch(() => null);
+      const authHeader = token ? `Bearer ${token}` : '';
+
+      // Always check for an existing completed report first
+      try {
+        const res = await fetch('/api/reports', {
+          headers: { Authorization: authHeader },
+        });
+        if (res.ok) {
+          const { reports } = await res.json();
+          const found = (reports || []).find(
+            (r: any) => r.evseId === evseId && r.connector === connectorId && r.status === 'completed' && r.s3Url
+          );
+          if (found) {
+            setS3Url(found.s3Url);
+            return;
+          }
+        }
+      } catch { /* fall through */ }
+
+      // Only generate if we came from checkout (user just paid)
+      if (!fromCheckout) {
+        setGenError('No report found. Please purchase a report to generate one.');
+        return;
+      }
+
+      setGenerating(true);
+      setGenError(null);
+
+      const generate = async (): Promise<void> => {
+        const res = await fetch('/api/generate-report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: authHeader },
+          body: JSON.stringify({ evse_id: evseId, connector_id: connectorId }),
+        });
+
+        if (res.status === 402) {
+          // Webhook may still be processing — wait and retry once
+          await new Promise((r) => setTimeout(r, 5000));
+          const retry = await fetch('/api/generate-report', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: authHeader },
+            body: JSON.stringify({ evse_id: evseId, connector_id: connectorId }),
+          });
+          if (!retry.ok) {
+            const e = await retry.json().catch(() => ({}));
+            throw new Error(e.error || 'Insufficient credits. If you just paid, please wait a moment and refresh.');
+          }
+          const d = await retry.json();
+          setS3Url(d.s3Url);
+          return;
+        }
+
+        if (!res.ok) {
+          const e = await res.json().catch(() => ({}));
+          throw new Error(e.error || 'Report generation failed. Please try again.');
+        }
+        const d = await res.json();
+        setS3Url(d.s3Url);
+      };
+
+      try {
+        await generate();
+      } catch (err: any) {
+        setGenError(err.message);
+      } finally {
+        setGenerating(false);
+      }
+    };
+
+    loadReport();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [evseId, connectorId]);
 
   const data: DeviceAIReport = useMemo(() => {
     const idNum = Number(deviceId || '5');
@@ -183,6 +277,34 @@ const AIReport: React.FC = () => {
         </div>
       </div>
 
+      {/* Generating / error state */}
+      {(generating || genError) && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+          {generating && (
+            <div className="bg-white rounded-2xl shadow border border-blue-100 p-8 flex flex-col items-center gap-4 text-center">
+              <Activity className="text-blue-600 animate-pulse" size={40} />
+              <p className="text-lg font-semibold text-gray-900">Generating your AI report…</p>
+              <p className="text-sm text-gray-500">This usually takes 30–120 seconds. Please keep this page open.</p>
+            </div>
+          )}
+          {genError && (
+            <div className="bg-white rounded-2xl shadow border border-red-100 p-8 flex flex-col items-center gap-4 text-center">
+              <AlertTriangle className="text-red-500" size={40} />
+              <p className="text-lg font-semibold text-gray-900">Report Unavailable</p>
+              <p className="text-sm text-red-600">{genError}</p>
+              <Link
+                to={deviceId ? `/report/${deviceId}/checkout` : '/stations'}
+                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+              >
+                Purchase Report Access
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Main report content — shown once ready or for non-checkout visits */}
+      {!generating && (
       <div ref={reportRef} className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <div className="bg-white rounded-2xl shadow-lg p-8 mb-8 border border-gray-100">
           <div className="flex items-start justify-between mb-6">
@@ -212,8 +334,30 @@ const AIReport: React.FC = () => {
 
           {data && (
             <div className="space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                <div className="relative overflow-hidden rounded-xl border border-teal-200 bg-gradient-to-br from-teal-50 to-white p-6">
+              {/* ML Report Images from S3 */}
+              {s3Url && (
+                <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+                  <h3 className="text-sm font-semibold text-blue-700 mb-3 flex items-center gap-2">
+                    <CheckCircle size={16} />
+                    AI Analysis Report
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {['battery_health_report', 'voltage_analysis', 'current_analysis', 'soc_analysis'].map((name) => (
+                      <div key={name} className="rounded-lg overflow-hidden border border-blue-100 bg-white">
+                        <p className="text-xs text-gray-500 px-3 pt-2 font-medium capitalize">{name.replace(/_/g, ' ')}</p>
+                        <img
+                          src={`${s3Url}/${name}.png`}
+                          alt={name}
+                          className="w-full object-contain"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">                <div className="relative overflow-hidden rounded-xl border border-teal-200 bg-gradient-to-br from-teal-50 to-white p-6">
                   <div className="absolute -top-10 -right-10 w-32 h-32 bg-teal-100 rounded-full opacity-40" />
                   <div className="space-y-3">
                     <h3 className="text-sm font-semibold text-teal-600 tracking-wide">Executive Summary</h3>
@@ -430,6 +574,7 @@ const AIReport: React.FC = () => {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 };

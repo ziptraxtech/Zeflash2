@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useAuth } from '@clerk/clerk-react';
 import {
   ArrowLeft,
   ShieldCheck,
@@ -20,6 +21,7 @@ const price = 99;
 const AIReportCheckout: React.FC = () => {
   const { deviceId } = useParams<{ deviceId: string }>();
   const navigate = useNavigate();
+  const { getToken } = useAuth();
   const [status, setStatus] = useState<CheckoutStatus>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -28,13 +30,6 @@ const AIReportCheckout: React.FC = () => {
   const handlePayNow = useCallback(async () => {
     if (!deviceId) {
       navigate('/stations');
-      return;
-    }
-
-    const keyId = import.meta.env.VITE_RAZORPAY_KEY_ID as string | undefined;
-    if (!keyId) {
-      setErrorMessage('Payment configuration not found. Please contact support.');
-      setStatus('error');
       return;
     }
 
@@ -48,50 +43,58 @@ const AIReportCheckout: React.FC = () => {
       return;
     }
 
+    // Create server-side order so webhook can track payment and add credits
+    let orderData: { orderId: string; amount: number; keyId: string };
+    try {
+      const token = await getToken();
+      const res = await fetch('/api/create-order', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ credits: 1 }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Order creation failed (${res.status})`);
+      }
+      orderData = await res.json();
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to create payment order. Please try again.');
+      setStatus('error');
+      return;
+    }
+
     const options: RazorpayOptions = {
-      key: keyId,
-      amount: price * 100,
+      key: orderData.keyId || (import.meta.env.VITE_RAZORPAY_KEY_ID as string),
+      amount: orderData.amount,
       currency: 'INR',
       name: 'Zeflash AI Report',
       description: `Unlock AI insights for ${deviceLabel}`,
-      handler: (response) => {
+      order_id: orderData.orderId,
+      handler: () => {
         setStatus('success');
         navigate(`/report/${deviceId}/ai`, {
           replace: true,
-          state: {
-            paymentId: response.razorpay_payment_id,
-            fromCheckout: true
-          }
+          state: { fromCheckout: true, orderId: orderData.orderId },
         });
       },
-      prefill: {
-        name: 'Zeflash Customer'
-      },
-      notes: {
-        deviceId,
-        product: 'ai-report'
-      },
-      theme: {
-        color: '#2563eb'
-      },
-      modal: {
-        ondismiss: () => {
-          setStatus('idle');
-        }
-      },
-      // Enable QR code display on mobile devices
-      upi_qr: true
+      prefill: { name: 'Zeflash Customer' },
+      notes: { deviceId, product: 'ai-report' },
+      theme: { color: '#2563eb' },
+      modal: { ondismiss: () => setStatus('idle') },
+      upi_qr: true,
     };
 
     try {
-      const checkout = new window.Razorpay(options);
-      checkout.open();
+      new window.Razorpay(options).open();
     } catch (error) {
       console.error('Razorpay Error', error);
       setErrorMessage('Unable to start payment. Please try again.');
       setStatus('error');
     }
-  }, [deviceId, deviceLabel, navigate]);
+  }, [deviceId, deviceLabel, navigate, getToken]);
 
   const isProcessing = status === 'processing';
 
