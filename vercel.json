@@ -1,4 +1,14 @@
 {
+  "functions": {
+    "api/**/*.ts": {
+      "runtime": "@vercel/node@5",
+      "maxDuration": 30
+    },
+    "api/**/*.js": {
+      "runtime": "@vercel/node@5",
+      "maxDuration": 30
+    }
+  },
   "rewrites": [
     {
       "source": "/api/ml-proxy/:path*",
