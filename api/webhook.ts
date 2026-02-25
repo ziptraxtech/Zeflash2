@@ -54,9 +54,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Handle successful payment
   if (eventType === 'payment.captured' || eventType === 'order.paid') {
     try {
-      const payment = event.payload.payment?.entity || event.payload.order?.entity?.payment;
-      const order = event.payload.order?.entity || event.payload.payment?.entity?.order;
-
       const razorpayPaymentId: string = event.payload.payment?.entity?.id;
       const razorpayOrderId: string =
         event.payload.payment?.entity?.order_id ||

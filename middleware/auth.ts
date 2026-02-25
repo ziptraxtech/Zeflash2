@@ -1,9 +1,5 @@
-import { createClerkClient } from '@clerk/backend';
+import { verifyToken } from '@clerk/backend';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-
-const clerkClient = createClerkClient({
-  secretKey: process.env.CLERK_SECRET_KEY!,
-});
 
 /**
  * Extracts and verifies the Clerk JWT from the Authorization header.
@@ -23,7 +19,9 @@ export async function requireAuth(
   const token = authHeader.split(' ')[1];
 
   try {
-    const payload = await clerkClient.verifyToken(token);
+    const payload = await verifyToken(token, {
+      secretKey: process.env.CLERK_SECRET_KEY!,
+    });
     return payload.sub; // clerkUserId
   } catch (err) {
     res.status(401).json({ error: 'Invalid or expired token' });
