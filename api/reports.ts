@@ -1,7 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { requireAuth } from '../middleware/auth';
-import { getOrCreateUser } from '../services/userService';
-import { prisma } from '../lib/prisma';
+
+const BACKEND = process.env.EC2_BACKEND_URL || 'http://3.90.162.23:3001';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -13,21 +12,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const clerkUserId = await requireAuth(req, res);
-  if (!clerkUserId) return;
-
   try {
-    const user = await getOrCreateUser(clerkUserId);
-    if (!user) return res.status(500).json({ error: 'Failed to resolve user' });
-
-    const reports = await prisma.report.findMany({
-      where: { userId: user.id },
-      orderBy: { createdAt: 'desc' },
+    const response = await fetch(`${BACKEND}/reports`, {
+      method: 'GET',
+      headers: {
+        'Authorization': (req.headers.authorization as string) || '',
+      },
     });
-
-    return res.status(200).json({ reports });
+    const data = await response.json();
+    return res.status(response.status).json(data);
   } catch (err: any) {
-    console.error('reports error:', err);
-    return res.status(500).json({ error: err.message || 'Internal server error' });
+    return res.status(502).json({ error: 'Backend unreachable', detail: err.message });
   }
 }

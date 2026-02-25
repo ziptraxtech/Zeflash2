@@ -182,18 +182,40 @@ npx prisma generate
    ```
 
 ### 3.3 Set up Webhook
-1. In Razorpay Dashboard → **Settings → Webhooks → + Add New Webhook**.
-2. **Webhook URL**: `https://your-vercel-domain.vercel.app/api/webhook`  
-   *(You'll get this URL after deploying to Vercel. Come back here and fill it in.)*
-3. **Secret**: create a strong random string, e.g. `zeflash_webhook_secret_2026`. Save it:
-   ```
-   RAZORPAY_WEBHOOK_SECRET=zeflash_webhook_secret_2026
-   ```
-4. **Events to subscribe** — check these:
-   - `payment.captured`
-   - `payment.failed`
-   - `order.paid`
-5. Click **Save**.
+
+> **Send these exact instructions to whoever manages the Razorpay account:**
+
+---
+
+**Steps to add the Zeflash webhook in Razorpay:**
+
+1. Log in to [https://dashboard.razorpay.com](https://dashboard.razorpay.com)
+2. Go to **Settings** (left sidebar) → **Webhooks** → click **+ Add New Webhook**
+3. Fill in the form exactly as follows:
+
+   - **Webhook URL:**
+     ```
+     https://zeflash.app/api/webhook
+     ```
+   - **Secret (Webhook Secret):**
+     ```
+     zeflash_live_whsec_2026
+     ```
+   - **Alert Email:** *(your email for failure alerts)*
+
+4. Under **Active Events**, check these **3 events only:**
+   - ✅ `payment.captured`
+   - ✅ `payment.failed`
+   - ✅ `order.paid`
+
+5. Click **Save** / **Create Webhook**
+
+6. You will see the webhook listed. Make sure the status shows **Active**.
+
+---
+
+**That's it. No other changes needed in Razorpay.**  
+The webhook URL is already live at `https://zeflash.app/api/webhook` and will start receiving events immediately after this is saved.
 
 ### 3.4 Test the webhook locally (optional, before deploying to Vercel)
 Use the **Razorpay Webhook Simulator** in the dashboard, or use [ngrok](https://ngrok.com):

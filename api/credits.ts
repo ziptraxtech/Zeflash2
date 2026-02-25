@@ -1,40 +1,24 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { requireAuth } from '../middleware/auth';
-import { getOrCreateUser, getRemainingCredits } from '../services/userService';
-import { prisma } from '../lib/prisma';
+
+const BACKEND = process.env.EC2_BACKEND_URL || 'http://3.90.162.23:3001';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // CORS preflight
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  const clerkUserId = await requireAuth(req, res);
-  if (!clerkUserId) return;
-
   try {
-    const user = await getOrCreateUser(clerkUserId);
-    if (!user) return res.status(500).json({ error: 'Failed to resolve user' });
-
-    const remaining = await getRemainingCredits(user.id);
-
-    const transactions = await prisma.creditTransaction.findMany({
-      where: { userId: user.id },
-      orderBy: { createdAt: 'desc' },
-      take: 10,
+    const response = await fetch(`${BACKEND}/credits`, {
+      method: req.method,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': req.headers.authorization || '',
+      },
     });
-
-    return res.status(200).json({
-      remaining,
-      transactions,
-    });
+    const data = await response.json();
+    return res.status(response.status).json(data);
   } catch (err: any) {
-    console.error('credits error:', err);
-    return res.status(500).json({ error: err.message || 'Internal server error' });
+    return res.status(502).json({ error: 'Backend unreachable', detail: err.message });
   }
 }
