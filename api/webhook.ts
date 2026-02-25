@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-const BACKEND = process.env.EC2_BACKEND_URL || 'http://3.90.162.23:3001';
+const BACKEND = process.env.EC2_BACKEND_URL!;
 
 export const config = { api: { bodyParser: false } };
 

@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-const BACKEND = process.env.EC2_BACKEND_URL || 'http://3.90.162.23:3001';
+const BACKEND = process.env.EC2_BACKEND_URL!;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
