@@ -48,8 +48,8 @@ const PlanCheckout: React.FC = () => {
           name: 'First Time Trial',
           tests: 1,
           validity: 0,
-          pricePerTest: 99,
-          totalPrice: 99,
+          pricePerTest: 299,
+          totalPrice: 299,
           features: [
             '1 complete 20-min diagnostic',
             'Instant health report',

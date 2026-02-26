@@ -21,7 +21,8 @@ const SectionLink: React.FC<{ href: string; label: string; active?: boolean }> =
 const ZeflashLanding: React.FC = () => {
   const topRef = useRef<HTMLDivElement | null>(null);
   const [activeSection, setActiveSection] = useState<string>('');
-  const apkDownloadUrl = '/apk/zeflash-latest.apk';
+  const [showCouponBanner, setShowCouponBanner] = useState<boolean>(false);
+  const apkDownloadUrl = 'https://www.indusappstore.com/apps/auto-and-vehicles/zeflash/com.ziptraxtech.zeflash/?page=details&id=com.ziptraxtech.zeflash';
 
   useEffect(() => {
     const sectionIds = ['what', 'features', 'how', 'science', 'metrics', 'who', 'why'];
@@ -51,9 +52,60 @@ const ZeflashLanding: React.FC = () => {
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  // Show coupon banner on every page load (dismissible per view only)
+  useEffect(() => {
+    setShowCouponBanner(true);
+  }, []);
   
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-blue-50/50 text-gray-900">
+      {/* Coupon Promo Modal */}
+      {showCouponBanner && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div className="relative w-full max-w-md rounded-2xl bg-gradient-to-b from-purple-600 via-pink-500 to-orange-500 text-white shadow-2xl border border-white/20 px-5 py-5 sm:px-6 sm:py-6">
+            {/* Close button */}
+            <button
+              type="button"
+              aria-label="Close coupon offer popup"
+              className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-black/30 hover:bg-black/40 border border-white/20 flex items-center justify-center text-lg font-bold"
+              onClick={() => setShowCouponBanner(false)}
+            >
+              ×
+            </button>
+
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-white/20 text-yellow-200 text-2xl font-bold">
+                ⚡
+              </div>
+              <div className="flex-1 text-sm sm:text-base">
+                <div className="font-semibold leading-snug text-white">
+                  Limited-time coupons on AI Reports at Charging Stations!
+                </div>
+                <div className="text-xs sm:text-sm text-pink-50/90 mt-1">
+                  Use coupons like <span className="font-semibold">TESTCHARJ</span> (Upto 40% off) or <span className="font-semibold">ZIPTRAX</span> (up to 98% off) during checkout to unlock special pricing.
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-3">
+              <Link
+                to="/stations"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-white text-purple-700 text-xs sm:text-sm font-semibold px-4 py-2 shadow-md hover:bg-purple-50 transition-colors flex-1"
+              >
+                Try with Coupon
+              </Link>
+              <button
+                type="button"
+                className="inline-flex items-center justify-center gap-1 rounded-full border border-white/40 text-white text-xs sm:text-sm font-semibold px-4 py-2 hover:bg-white/10 transition-colors flex-none sm:flex-0"
+                onClick={() => setShowCouponBanner(false)}
+              >
+                Maybe later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Top bar */}
       <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
@@ -198,7 +250,8 @@ const ZeflashLanding: React.FC = () => {
                 </button>
                 <a
                   href={apkDownloadUrl}
-                  download
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:from-blue-700 hover:to-indigo-700"
                 >
                   <Download size={18} /> Download APK

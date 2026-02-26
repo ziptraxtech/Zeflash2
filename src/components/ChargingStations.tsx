@@ -470,34 +470,26 @@ const ChargingStations: React.FC = () => {
         </div>
 
         {/* Stats Section */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12">
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-blue-700">Online Stations</h3>
-              <Zap className="w-5 h-5 text-blue-600" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-12">
+            <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 hover:bg-blue-100 transition-colors text-center">
+              <div className="text-xs text-blue-700 font-semibold">Instant Health Report</div>
+              <div className="text-3xl font-extrabold text-blue-700 mt-1">20 Min <span role='img' aria-label='check'>✅</span></div>
             </div>
-            <p className="text-3xl font-extrabold text-blue-900">{
-              stations.filter((s) => isStationOnline(s.name)).length
-            }</p>
-            <p className="text-xs text-blue-600 mt-1">Ready to serve you</p>
-          </div>
-          <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 border border-cyan-200 rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-cyan-700">Test Duration</h3>
-              <Clock className="w-5 h-5 text-cyan-600" />
+            <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 transition-colors text-center">
+              <div className="text-xs text-emerald-700 font-semibold">ML Accuracy</div>
+              <div className="text-3xl font-extrabold text-emerald-700 mt-1">94.66%</div>
             </div>
-            <p className="text-3xl font-extrabold text-cyan-900">20 min</p>
-            <p className="text-xs text-cyan-600 mt-1">Quick & accurate</p>
-          </div>
-          <div className="bg-gradient-to-br from-teal-50 to-teal-100 border border-teal-200 rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-teal-700">Accuracy</h3>
-              <CheckCircle className="w-5 h-5 text-teal-600" />
+            <div className="p-4 rounded-xl bg-violet-50 border border-violet-100 hover:bg-violet-100 transition-colors text-center">
+              <div className="text-xs text-violet-700 font-semibold">Precision</div>
+              <div className="text-xs text-violet-600 mt-1">[Excellent True Positives]</div>
+              <div className="text-2xl font-extrabold text-violet-700 mt-2">91.8%</div>
             </div>
-            <p className="text-3xl font-extrabold text-teal-900">90%+</p>
-            <p className="text-xs text-teal-600 mt-1">Highly reliable</p>
+            <div className="p-4 rounded-xl bg-orange-50 border border-orange-100 hover:bg-orange-100 transition-colors text-center">
+              <div className="text-xs text-orange-700 font-semibold">False Negative Rate</div>
+              <div className="text-xs text-orange-600 mt-1">[Low Misdetection]</div>
+              <div className="text-2xl font-extrabold text-orange-700 mt-2">6.1%</div>
+            </div>
           </div>
-        </div>
 
         {/* Search and Filter Section */}
         <div className="sticky top-20 z-30 bg-white/95 backdrop-blur rounded-2xl shadow-lg p-6 mb-12 border border-blue-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">

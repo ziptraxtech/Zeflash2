@@ -3,8 +3,8 @@
 # Usage: ./backend/deploy.sh
 
 EC2_IP="3.90.162.23"
-EC2_USER="ec2-user"         # change to "ubuntu" if using Ubuntu AMI
-SSH_KEY="~/.ssh/your-key.pem"  # ← UPDATE THIS to your actual .pem key path
+EC2_USER="ubuntu"
+SSH_KEY="$HOME/.ssh/battery-ml-key.pem"
 REMOTE_DIR="/home/${EC2_USER}/zeflash-backend"
 
 echo "🚀 Deploying Zeflash backend to EC2..."
@@ -23,8 +23,8 @@ ssh -i ${SSH_KEY} ${EC2_USER}@${EC2_IP} << 'ENDSSH'
 
   # Install Node.js 20 if not present
   if ! command -v node &> /dev/null; then
-    curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
-    sudo yum install -y nodejs
+    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+    sudo apt-get install -y nodejs
   fi
 
   # Install PM2 if not present

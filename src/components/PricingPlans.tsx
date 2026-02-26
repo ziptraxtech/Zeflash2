@@ -102,14 +102,14 @@ const PricingPlans: React.FC = () => {
                 </span>
               </div>
               <div className="mb-4">
-                <h3 className="text-xl font-bold text-gray-900">First Time</h3>
+                <h3 className="text-xl font-bold text-gray-900">One Time</h3>
                 <p className="text-sm text-gray-600 mt-1">Try it once</p>
               </div>
               <div className="mb-6">
                 <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-extrabold text-emerald-700">₹99</span>
+                  <span className="text-4xl font-extrabold text-emerald-700">₹299</span>
                 </div>
-                <p className="text-xs text-gray-600 mt-1">One-time trial • Then ₹299/test</p>
+                <p className="text-xs text-gray-600 mt-1">₹299/test</p>
               </div>
               <ul className="space-y-3 mb-6">
                 <li className="flex items-start gap-2 text-sm text-gray-700">
@@ -138,7 +138,7 @@ const PricingPlans: React.FC = () => {
             </div>
 
             {/* 4 Tests Pack */}
-            <div className="relative rounded-2xl border-2 border-gray-200 bg-white p-6 hover:shadow-lg transition-all">
+            <div className="relative rounded-2xl border-2 border-indigo-400 bg-gradient-to-br from-indigo-50 to-white p-6 hover:shadow-lg hover:border-indigo-500 transition-all">
               <div className="mb-4">
                 <h3 className="text-xl font-bold text-gray-900">Starter Pack</h3>
                 <p className="text-sm text-gray-600 mt-1">Regular monitoring</p>
@@ -169,7 +169,7 @@ const PricingPlans: React.FC = () => {
               </ul>
               <Link
                 to="/checkout?plan=starter&tests=4&months=12&price=999"
-                className="block w-full text-center rounded-lg bg-gray-100 border border-gray-300 text-gray-800 font-semibold px-4 py-2.5 hover:bg-gray-200 transition-colors"
+                className="block w-full text-center rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-semibold px-4 py-2.5 hover:from-blue-700 hover:to-cyan-700 shadow-md transition-all"
               >
                 Get Started
               </Link>
@@ -223,7 +223,7 @@ const PricingPlans: React.FC = () => {
             </div>
 
             {/* Custom Plan */}
-            <div className="relative rounded-2xl border-2 border-gray-200 bg-white p-6 hover:shadow-lg transition-all">
+            <div className="relative rounded-2xl border-2 border-purple-600 bg-white p-6 hover:shadow-lg hover:border-pink-500 transition-all">
               <div className="mb-4">
                 <h3 className="text-xl font-bold text-gray-900">Custom Plan</h3>
                 <p className="text-sm text-gray-600 mt-1">Tailored for you</p>
