@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, MapPin, ArrowLeft, BarChart3, Zap, Clock, CheckCircle, Users, X, Activity, Thermometer, RefreshCw, Download } from 'lucide-react';
+import { Search, MapPin, ArrowLeft, BarChart3, Zap, CheckCircle, Users, X, Activity, Thermometer, RefreshCw, Download } from 'lucide-react';
 import Papa from 'papaparse';
 import * as mlService from '../services/mlService';
 import html2canvas from 'html2canvas';
