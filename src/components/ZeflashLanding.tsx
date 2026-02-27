@@ -83,7 +83,7 @@ const ZeflashLanding: React.FC = () => {
                   Limited-time coupons on AI Reports at Charging Stations!
                 </div>
                 <div className="text-xs sm:text-sm text-pink-50/90 mt-1">
-                  Use coupons like <span className="font-semibold">TESTCHARJ</span> (Upto 40% off) or <span className="font-semibold">ZIPTRAX</span> (up to 98% off) during checkout to unlock special pricing.
+                  Use the coupon <span className="font-semibold">TESTCHARJ</span> (up to 40% off) during checkout to unlock special pricing.
                 </div>
               </div>
             </div>
