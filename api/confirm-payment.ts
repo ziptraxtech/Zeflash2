@@ -20,7 +20,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     const text = await response.text();
-    const data = text ? JSON.parse(text) : {};
+    let data: any = {};
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { error: text.slice(0, 300) };
+      }
+    }
     return res.status(response.status).json(data);
   } catch (err: any) {
     return res.status(502).json({ error: 'Backend unreachable', detail: err.message });

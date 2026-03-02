@@ -682,10 +682,16 @@ const ChargingStations: React.FC = () => {
                     <div key={test.id} className="rounded-xl border border-gray-200 bg-gray-50 overflow-hidden">
                       <div className="h-36 bg-white border-b border-gray-200">
                         <img
-                          src={test.s3Url || ''}
+                          src={`${resolveAiImageUrl(test.s3Url, test.evseId, test.connector)}?t=${Date.now()}`}
                           alt={`AI report ${deviceId}`}
                           className="w-full h-full object-cover"
                           loading="lazy"
+                          onError={(e) => {
+                            const fallback = `${getDefaultAiImageUrl(test.evseId, test.connector)}?t=${Date.now()}`;
+                            if ((e.currentTarget as HTMLImageElement).src !== fallback) {
+                              (e.currentTarget as HTMLImageElement).src = fallback;
+                            }
+                          }}
                         />
                       </div>
                       <div className="p-3 space-y-1">
@@ -1286,7 +1292,7 @@ const ChargingStations: React.FC = () => {
                   </div>
                   <p className="ml-3 text-gray-600">Loading report...</p>
                 </div>
-              ) : reportModal.error ? (
+              ) : reportModal.error && !reportModal.aiImageUrl ? (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                   <p className="text-red-800 font-semibold">Error loading report</p>
                   <p className="text-red-600 text-sm mt-1">{reportModal.error}</p>
@@ -1364,10 +1370,10 @@ const ChargingStations: React.FC = () => {
                   </div>
 
                   {/* AI Health Report Error */}
-                  {reportModal.aiError && (
+                  {(reportModal.aiError || reportModal.error) && (
                     <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                       <p className="text-red-800 font-semibold">AI Report Error</p>
-                      <p className="text-red-600 text-sm mt-1">{reportModal.aiError}</p>
+                      <p className="text-red-600 text-sm mt-1">{reportModal.aiError || reportModal.error}</p>
                       <div className="mt-3 pt-3 border-t border-red-200">
                         <p className="text-xs text-gray-700 mb-2">Try accessing S3 URL directly:</p>
                         <a 

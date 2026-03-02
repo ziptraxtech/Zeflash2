@@ -164,7 +164,14 @@ setErrorMessage(null);
       });
 
       const orderResponseText = await orderResponse.text();
-      const orderPayload = orderResponseText ? JSON.parse(orderResponseText) : {};
+      let orderPayload: any = {};
+      if (orderResponseText) {
+        try {
+          orderPayload = JSON.parse(orderResponseText);
+        } catch {
+          orderPayload = { error: 'Server returned a non-JSON error while creating order.' };
+        }
+      }
 
       if (!orderResponse.ok) {
         throw new Error(orderPayload.error || 'Failed to create order');
@@ -198,7 +205,14 @@ setErrorMessage(null);
             });
 
             const confirmText = await confirmResponse.text();
-            const confirmPayload = confirmText ? JSON.parse(confirmText) : {};
+            let confirmPayload: any = {};
+            if (confirmText) {
+              try {
+                confirmPayload = JSON.parse(confirmText);
+              } catch {
+                confirmPayload = { error: 'Server returned a non-JSON error while confirming payment.' };
+              }
+            }
 
             if (!confirmResponse.ok) {
               throw new Error(confirmPayload.error || 'Payment captured but credit update failed');
