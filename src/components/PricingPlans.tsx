@@ -95,6 +95,9 @@ const PricingPlans: React.FC = () => {
             <p className="mt-3 text-gray-700 max-w-2xl mx-auto text-lg">
               Choose the plan that fits your needs — from one-time diagnostics to regular fleet monitoring.
             </p>
+            <div className="mt-3 inline-flex items-center gap-2 bg-violet-50 border border-violet-200 rounded-full px-4 py-1.5 text-sm font-semibold text-violet-700">
+              <span>⚡</span> 1 battery test = 1 ZeVault credit
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">

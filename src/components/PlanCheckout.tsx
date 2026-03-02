@@ -308,6 +308,10 @@ setErrorMessage(null);
                   <p className="text-sm text-gray-500">{planDetails.tests} test{planDetails.tests > 1 ? 's' : ''} • {planDetails.validity > 0 ? `Valid ${planDetails.validity} months` : 'One-time use'}</p>
                 </div>
               </div>
+              <div className="mb-4 flex items-center gap-2 rounded-lg bg-violet-50 border border-violet-200 px-3 py-2 text-sm font-semibold text-violet-700">
+                <span>⚡</span>
+                <span>{planDetails.tests} ZeVault credit{planDetails.tests > 1 ? 's' : ''} — 1 test = 1 credit</span>
+              </div>
               <div className="mb-6 p-4 rounded-xl bg-blue-50 border border-blue-100">
                 <div className="flex items-center justify-between">
                   <div>

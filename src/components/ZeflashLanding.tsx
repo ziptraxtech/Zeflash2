@@ -132,7 +132,7 @@ const ZeflashLanding: React.FC = () => {
           </nav>
           <div className="flex items-center gap-2 sm:gap-3">
             <SignedIn>
-              <CreditsWallet size="sm" showLabel={false} className="hidden sm:flex" />
+              <CreditsWallet size="sm" showLabel={true} className="hidden sm:flex" />
             </SignedIn>
             <SignedOut>
               <SignUpButton mode="modal">

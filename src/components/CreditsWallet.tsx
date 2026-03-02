@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth, useUser } from '@clerk/clerk-react';
 import { API_URL } from '../config/api';
-import { Wallet, Loader2, Plus } from 'lucide-react';
+import { Zap, Loader2, Plus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface CreditsWalletProps {
@@ -60,39 +60,42 @@ const CreditsWallet: React.FC<CreditsWalletProps> = ({
     return null;
   }
 
-  const iconSize = size === 'sm' ? 16 : size === 'lg' ? 24 : 20;
-  const textSize = size === 'sm' ? 'text-sm' : size === 'lg' ? 'text-lg' : 'text-base';
+  const iconSize = size === 'sm' ? 14 : size === 'lg' ? 20 : 16;
+  const textSize = size === 'sm' ? 'text-xs' : size === 'lg' ? 'text-base' : 'text-sm';
   const badgeSize = size === 'sm' ? 'text-xs px-2 py-0.5' : size === 'lg' ? 'text-base px-3 py-1' : 'text-sm px-2.5 py-1';
 
   return (
-    <div className={`inline-flex items-center gap-2 ${className}`}>
-      {/* Credits Display */}
-      <div className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200 px-3 py-1.5">
-        <Wallet size={iconSize} className="text-emerald-600" />
+    <div className={`inline-flex items-center gap-2 ${className}`} title="1 test = 1 ZeVault credit">
+      {/* ZeVault Credits Display */}
+      <Link
+        to="/plans"
+        className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 px-3 py-1.5 hover:from-violet-700 hover:to-indigo-700 transition-all shadow-sm hover:shadow-md"
+      >
+        <Zap size={iconSize} className="text-yellow-300" fill="currentColor" />
         {loading ? (
-          <Loader2 size={iconSize} className="animate-spin text-emerald-600" />
+          <Loader2 size={iconSize} className="animate-spin text-white" />
         ) : (
           <>
             {showLabel && (
-              <span className={`${textSize} font-medium text-gray-700`}>
-                Credits:
+              <span className={`${textSize} font-bold text-white tracking-wide`}>
+                ZeVault
               </span>
             )}
-            <span className={`${textSize} font-bold text-emerald-700`}>
+            <span className={`${textSize} font-bold text-yellow-300`}>
               {credits !== null ? credits : '—'}
             </span>
           </>
         )}
-      </div>
+      </Link>
 
-      {/* Add Credits Button */}
-      {(credits === 0 || credits === null) && (
+      {/* Add Credits prompt when empty */}
+      {credits === 0 && (
         <Link
           to="/plans"
-          className={`inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-semibold ${badgeSize} hover:from-blue-700 hover:to-cyan-700 transition-all shadow-sm hover:shadow-md`}
+          className={`inline-flex items-center gap-1 rounded-lg border border-violet-300 text-violet-700 font-semibold ${badgeSize} hover:bg-violet-50 transition-all`}
         >
-          <Plus size={iconSize - 4} />
-          Add Credits
+          <Plus size={iconSize - 2} />
+          Add
         </Link>
       )}
     </div>
