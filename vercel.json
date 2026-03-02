@@ -1,37 +1,5 @@
 {
-  "functions": {
-    "api/**/*.ts": {
-      "maxDuration": 30
-    },
-    "api/**/*.js": {
-      "maxDuration": 30
-    }
-  },
   "rewrites": [
-    {
-      "source": "/api/create-order",
-      "destination": "http://3.90.162.23:3001/create-order"
-    },
-    {
-      "source": "/api/confirm-payment",
-      "destination": "http://3.90.162.23:3001/confirm-payment"
-    },
-    {
-      "source": "/api/credits",
-      "destination": "http://3.90.162.23:3001/credits"
-    },
-    {
-      "source": "/api/reports",
-      "destination": "http://3.90.162.23:3001/reports"
-    },
-    {
-      "source": "/api/generate-report",
-      "destination": "http://3.90.162.23:3001/generate-report"
-    },
-    {
-      "source": "/api/webhook",
-      "destination": "http://3.90.162.23:3001/webhook"
-    },
     {
       "source": "/api/ml-proxy/:path*",
       "destination": "/api/ml-proxy"
