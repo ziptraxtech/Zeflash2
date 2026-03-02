@@ -1,9 +1,11 @@
 import React, { useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { CheckCircle, ArrowLeft, Zap } from 'lucide-react';
 import CreditsWallet from './CreditsWallet';
 
 const PricingPlans: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const isDevMode = searchParams.get('dev') === '1';
   // Custom plan calculator
   useEffect(() => {
     const calculateCustomPrice = () => {

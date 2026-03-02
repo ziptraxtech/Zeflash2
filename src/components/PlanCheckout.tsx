@@ -139,8 +139,8 @@ setErrorMessage(null);
 
     try {
       // Get Clerk auth token
-      const token = await getToken();
-      if (!token) {
+      const orderToken = await getToken();
+      if (!orderToken) {
         setErrorMessage('Please sign in to continue');
         setStatus('error');
         return;
@@ -154,7 +154,7 @@ setErrorMessage(null);
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${orderToken}`
         },
         body: JSON.stringify({
           credits: planDetails.tests,
@@ -196,11 +196,16 @@ setErrorMessage(null);
         description: planDetails.name,
         handler: (response) => {
           void (async () => {
+            const confirmToken = await getToken();
+            if (!confirmToken) {
+              throw new Error('Session expired while confirming payment. Please sign in again.');
+            }
+
             const confirmResponse = await fetch(`${API_URL}/confirm-payment`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
+                'Authorization': `Bearer ${confirmToken}`
               },
               body: JSON.stringify(response)
             });
