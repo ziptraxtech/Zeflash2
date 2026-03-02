@@ -8,13 +8,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-razorpay-signature': req.headers['x-razorpay-signature'] || '',
+        'x-razorpay-signature': String(req.headers['x-razorpay-signature'] || ''),
       },
       body: JSON.stringify(req.body),
     });
 
-    const data = await response.json();
-    return res.status(response.status).json(data);
+    const text = await response.text();
+    const contentType = response.headers.get('content-type') || '';
+
+    res.status(response.status);
+    if (contentType.includes('application/json')) {
+      try {
+        return res.json(text ? JSON.parse(text) : {});
+      } catch {
+        return res.json({ error: 'Invalid JSON from upstream', raw: text.slice(0, 500) });
+      }
+    }
+
+    if (contentType) {
+      res.setHeader('Content-Type', contentType);
+    }
+    return res.send(text);
   } catch (error) {
     console.error('Proxy error:', error);
     return res.status(500).json({ error: 'Proxy failed' });
