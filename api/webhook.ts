@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const BACKEND = process.env.EC2_BACKEND_URL || 'http://3.90.162.23:3001';
 
-export const config = { api: { bodyParser: false } };
+export const config = { runtime: 'nodejs', api: { bodyParser: false } };
 
 function getRawBody(req: VercelRequest): Promise<Buffer> {
   return new Promise((resolve, reject) => {
