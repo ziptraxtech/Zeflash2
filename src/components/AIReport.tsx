@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '@clerk/clerk-react';
-import { API_URL } from '../config/api';
 import CreditsWallet from './CreditsWallet';
 import {
   ArrowLeft,
@@ -64,7 +63,7 @@ const AIReport: React.FC = () => {
 
       // Always check for an existing completed report first
       try {
-        const res = await fetch(`${API_URL}/reports`, {
+        const res = await fetch('/api/reports', {
           headers: { Authorization: authHeader },
         });
         if (res.ok) {
@@ -83,7 +82,7 @@ const AIReport: React.FC = () => {
       setGenError(null);
 
       const generate = async (): Promise<void> => {
-        const res = await fetch(`${API_URL}/generate-report`, {
+        const res = await fetch('/api/generate-report', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: authHeader },
           body: JSON.stringify({ evse_id: evseId, connector_id: connectorId }),
@@ -92,7 +91,7 @@ const AIReport: React.FC = () => {
         if (res.status === 402) {
           // Webhook may still be processing — wait and retry once
           await new Promise((r) => setTimeout(r, 5000));
-          const retry = await fetch(`${API_URL}/generate-report`, {
+          const retry = await fetch('/api/generate-report', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: authHeader },
             body: JSON.stringify({ evse_id: evseId, connector_id: connectorId }),

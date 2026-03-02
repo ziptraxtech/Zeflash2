@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth, useUser } from '@clerk/clerk-react';
-import { API_URL } from '../config/api';
 import { Wallet, Loader2, Plus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -32,7 +31,7 @@ const CreditsWallet: React.FC<CreditsWalletProps> = ({
         const token = await getToken();
         if (!token) return;
 
-        const response = await fetch(`${API_URL}/credits`, {
+        const response = await fetch('/api/credits', {
           headers: {
             'Authorization': `Bearer ${token}`
           }

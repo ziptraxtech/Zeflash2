@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { API_URL } from '../config/api';
 import { Search, MapPin, ArrowLeft, BarChart3, Zap, CheckCircle, Users, X, Activity, Thermometer, RefreshCw, Download } from 'lucide-react';
 import Papa from 'papaparse';
 import * as mlService from '../services/mlService';
@@ -224,7 +223,7 @@ const ChargingStations: React.FC = () => {
       const token = await getToken();
       if (!token) throw new Error('Please sign in to use credits.');
 
-      const response = await fetch(`${API_URL}/generate-report`, {
+      const response = await fetch('/api/generate-report', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -375,7 +374,7 @@ const ChargingStations: React.FC = () => {
           setAvailableCredits(0);
           return;
         }
-        const response = await fetch(`${API_URL}/credits`, {
+        const response = await fetch('/api/credits', {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -411,7 +410,7 @@ const ChargingStations: React.FC = () => {
           return;
         }
 
-        const response = await fetch(`${API_URL}/reports`, {
+        const response = await fetch('/api/reports', {
           headers: {
             Authorization: `Bearer ${token}`,
           },
