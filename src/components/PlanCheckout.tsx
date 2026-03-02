@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@clerk/clerk-react';
+import { API_URL } from '../config/api';
 import {
   ArrowLeft,
   ShieldCheck,
@@ -149,7 +150,7 @@ setErrorMessage(null);
       const plan = searchParams.get('plan') || 'trial';
       const isCustom = plan === 'custom';
       
-      const orderResponse = await fetch('/api/create-order', {
+      const orderResponse = await fetch(`${API_URL}/create-order`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -195,7 +196,7 @@ setErrorMessage(null);
         description: planDetails.name,
         handler: (response) => {
           void (async () => {
-            const confirmResponse = await fetch('/api/confirm-payment', {
+            const confirmResponse = await fetch(`${API_URL}/confirm-payment`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
