@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '@clerk/clerk-react';
+import { API_URL } from '../config/api';
 import {
   ArrowLeft,
   ShieldCheck,
@@ -39,7 +40,7 @@ const AIReportCheckout: React.FC = () => {
     let token: string | null = null;
     try {
       token = await getToken();
-      const creditsRes = await fetch('/api/credits', {
+      const creditsRes = await fetch(`${API_URL}/credits`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -68,7 +69,7 @@ const AIReportCheckout: React.FC = () => {
       if (!token) {
         throw new Error('Please sign in to continue.');
       }
-      const res = await fetch('/api/create-order', {
+      const res = await fetch(`${API_URL}/create-order`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
