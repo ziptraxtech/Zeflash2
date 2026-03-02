@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import { creditsRouter } from './routes/credits';
 import { createOrderRouter } from './routes/createOrder';
+import { confirmPaymentRouter } from './routes/confirmPayment';
 import { webhookRouter } from './routes/webhook';
 import { generateReportRouter } from './routes/generateReport';
 import { reportsRouter } from './routes/reports';
@@ -31,6 +32,7 @@ app.get('/health', (_req, res) => {
 // Routes
 app.use('/credits', creditsRouter);
 app.use('/create-order', createOrderRouter);
+app.use('/confirm-payment', confirmPaymentRouter);
 app.use('/webhook', webhookRouter);
 app.use('/generate-report', generateReportRouter);
 app.use('/reports', reportsRouter);

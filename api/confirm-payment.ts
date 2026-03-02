@@ -10,11 +10,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const response = await fetch(`${BACKEND}/create-order`, {
+    const response = await fetch(`${BACKEND}/confirm-payment`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': req.headers.authorization || '' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': (req.headers.authorization as string) || '',
+      },
       body: JSON.stringify(req.body),
     });
+
     const text = await response.text();
     const data = text ? JSON.parse(text) : {};
     return res.status(response.status).json(data);

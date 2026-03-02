@@ -36,6 +36,25 @@ const AIReportCheckout: React.FC = () => {
     setErrorMessage(null);
     setStatus('processing');
 
+    let token: string | null = null;
+    try {
+      token = await getToken();
+      const creditsRes = await fetch('/api/credits', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (creditsRes.ok) {
+        const creditsData = await creditsRes.json();
+        if ((creditsData.remaining ?? 0) > 0) {
+          navigate(`/report/${deviceId}/ai`, { replace: true });
+          return;
+        }
+      }
+    } catch {
+      // If credit check fails, continue with payment flow.
+    }
+
     const loaded = await loadRazorpayScript();
     if (!loaded || typeof window.Razorpay === 'undefined') {
       setErrorMessage('Unable to load Razorpay checkout. Please check your connection and try again.');
@@ -46,7 +65,9 @@ const AIReportCheckout: React.FC = () => {
     // Create server-side order so webhook can track payment and add credits
     let orderData: { orderId: string; amount: number; keyId: string };
     try {
-      const token = await getToken();
+      if (!token) {
+        throw new Error('Please sign in to continue.');
+      }
       const res = await fetch('/api/create-order', {
         method: 'POST',
         headers: {

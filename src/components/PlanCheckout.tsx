@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '@clerk/clerk-react';
 import {
   ArrowLeft,
   ShieldCheck,
@@ -25,6 +26,7 @@ interface PlanDetails {
 const PlanCheckout: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { getToken } = useAuth();
   const [status, setStatus] = useState<CheckoutStatus>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [planDetails, setPlanDetails] = useState<PlanDetails | null>(null);
@@ -43,6 +45,21 @@ const PlanCheckout: React.FC = () => {
     let details: PlanDetails;
 
     switch (plan) {
+      case 'test':
+        details = {
+          name: 'Test Plan',
+          tests: 1,
+          validity: 0,
+          pricePerTest: 1,
+          totalPrice: 1,
+          features: [
+            '1 complete diagnostic test',
+            'Instant AI health report',
+            'All features included',
+            'Development testing only'
+          ]
+        };
+        break;
       case 'trial':
         details = {
           name: 'First Time Trial',
@@ -116,69 +133,118 @@ const PlanCheckout: React.FC = () => {
 
   const handlePayNow = useCallback(async () => {
     if (!planDetails) return;
-
-    const keyId = import.meta.env.VITE_RAZORPAY_KEY_ID as string | undefined;
-    if (!keyId) {
-      setErrorMessage('Payment configuration not found. Please contact support.');
-      setStatus('error');
-      return;
-    }
-
-    setErrorMessage(null);
+setErrorMessage(null);
     setStatus('processing');
 
-    const loaded = await loadRazorpayScript();
-    if (!loaded || typeof window.Razorpay === 'undefined') {
-      setErrorMessage('Unable to load Razorpay checkout. Please check your connection and try again.');
-      setStatus('error');
-      return;
-    }
-
-    const options: RazorpayOptions = {
-      key: keyId,
-      amount: planDetails.totalPrice * 100,
-      currency: 'INR',
-      name: 'Zeflash',
-      description: planDetails.name,
-      handler: (response) => {
-        setStatus('success');
-        // Redirect to success page or stations
-        navigate('/stations', {
-          replace: true,
-          state: {
-            paymentId: response.razorpay_payment_id,
-            plan: planDetails.name,
-            tests: planDetails.tests
-          }
-        });
-      },
-      prefill: {
-        name: 'Zeflash Customer'
-      },
-      notes: {
-        plan: planDetails.name,
-        tests: planDetails.tests.toString(),
-        validity: planDetails.validity.toString()
-      },
-      theme: {
-        color: '#2563eb'
-      },
-      modal: {
-        ondismiss: () => {
-          setStatus('idle');
-        }
-      }
-    };
-
     try {
+      // Get Clerk auth token
+      const token = await getToken();
+      if (!token) {
+        setErrorMessage('Please sign in to continue');
+        setStatus('error');
+        return;
+      }
+
+      // Create order via backend
+      const plan = searchParams.get('plan') || 'trial';
+      const isCustom = plan === 'custom';
+      
+      const orderResponse = await fetch('/api/create-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          credits: planDetails.tests,
+          planName: plan,
+          months: planDetails.validity,
+          isCustom
+        })
+      });
+
+      const orderResponseText = await orderResponse.text();
+      const orderPayload = orderResponseText ? JSON.parse(orderResponseText) : {};
+
+      if (!orderResponse.ok) {
+        throw new Error(orderPayload.error || 'Failed to create order');
+      }
+
+      const orderData = orderPayload;
+      
+      // Load Razorpay
+      const loaded = await loadRazorpayScript();
+      if (!loaded || typeof window.Razorpay === 'undefined') {
+        throw new Error('Unable to load payment gateway');
+      }
+
+      // Open Razorpay checkout
+      const options: RazorpayOptions = {
+        key: orderData.keyId,
+        order_id: orderData.orderId,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: 'Zeflash',
+        description: planDetails.name,
+        handler: (response) => {
+          void (async () => {
+            const confirmResponse = await fetch('/api/confirm-payment', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify(response)
+            });
+
+            const confirmText = await confirmResponse.text();
+            const confirmPayload = confirmText ? JSON.parse(confirmText) : {};
+
+            if (!confirmResponse.ok) {
+              throw new Error(confirmPayload.error || 'Payment captured but credit update failed');
+            }
+
+            setStatus('success');
+            navigate('/stations', {
+              replace: true,
+              state: {
+                paymentSuccess: true,
+                credits: confirmPayload.remaining ?? planDetails.tests,
+                creditsUpdatedAt: Date.now()
+              }
+            });
+          })().catch((confirmError: any) => {
+            console.error('Payment confirmation error:', confirmError);
+            setErrorMessage(confirmError.message || 'Payment succeeded but credits are pending. Please refresh in 30 seconds.');
+            setStatus('error');
+          });
+        },
+        prefill: {
+          name: 'Zeflash Customer'
+        },
+        notes: {
+          plan: planDetails.name,
+          tests: planDetails.tests.toString(),
+          validity: planDetails.validity.toString()
+        },
+        theme: {
+          color: '#2563eb'
+        },
+        modal: {
+          ondismiss: () => {
+            setStatus('idle');
+          }
+        }
+      };
+
       const checkout = new window.Razorpay(options);
       checkout.open();
-    } catch (error) {
-      console.error('Razorpay Error', error);
-      setErrorMessage('Unable to start payment. Please try again.');
+    } catch (error: any) {
+      console.error('Payment Error:', error);
+      setErrorMessage(error.message || 'Payment failed. Please try again.');
       setStatus('error');
     }
-  }, [planDetails, navigate]);
+  }, [planDetails, getToken, navigate, searchParams]);
 
   const isProcessing = status === 'processing';
 

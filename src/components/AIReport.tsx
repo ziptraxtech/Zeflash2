@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '@clerk/clerk-react';
+import CreditsWallet from './CreditsWallet';
 import {
   ArrowLeft,
   Download,
@@ -36,7 +37,6 @@ const severityColor = (status: string) => {
 
 const AIReport: React.FC = () => {
   const { deviceId } = useParams<{ deviceId: string }>();
-  const location = useLocation();
   const { getToken } = useAuth();
   const reportRef = useRef<HTMLDivElement | null>(null);
 
@@ -56,7 +56,6 @@ const AIReport: React.FC = () => {
 
   useEffect(() => {
     if (!evseId) return;
-    const fromCheckout = !!(location.state as any)?.fromCheckout;
 
     const loadReport = async () => {
       const token = await getToken().catch(() => null);
@@ -79,12 +78,6 @@ const AIReport: React.FC = () => {
         }
       } catch { /* fall through */ }
 
-      // Only generate if we came from checkout (user just paid)
-      if (!fromCheckout) {
-        setGenError('No report found. Please purchase a report to generate one.');
-        return;
-      }
-
       setGenerating(true);
       setGenError(null);
 
@@ -105,7 +98,7 @@ const AIReport: React.FC = () => {
           });
           if (!retry.ok) {
             const e = await retry.json().catch(() => ({}));
-            throw new Error(e.error || 'Insufficient credits. If you just paid, please wait a moment and refresh.');
+            throw new Error(e.error || 'Insufficient credits. Please buy a plan to generate AI reports.');
           }
           const d = await retry.json();
           setS3Url(d.s3Url);
@@ -264,7 +257,8 @@ const AIReport: React.FC = () => {
                 AI Battery Report
               </h1>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              <CreditsWallet size="sm" showLabel={false} className="hidden sm:flex" />
               <button
                 onClick={handleExportPDF}
                 className="inline-flex items-center px-3 py-2 rounded-lg text-gray-600 hover:text-blue-600 hover:bg-gray-100 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-1"
@@ -293,10 +287,10 @@ const AIReport: React.FC = () => {
               <p className="text-lg font-semibold text-gray-900">Report Unavailable</p>
               <p className="text-sm text-red-600">{genError}</p>
               <Link
-                to={deviceId ? `/report/${deviceId}/checkout` : '/stations'}
+                to="/plans"
                 className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
               >
-                Purchase Report Access
+                Buy Credits Plan
               </Link>
             </div>
           )}

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Zap, Zap as Bolt, Play, CheckCircle, Microscope, Cpu, Battery, Download, Store } from 'lucide-react';
 import { SignUpButton, SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
+import CreditsWallet from './CreditsWallet';
 
 const SectionLink: React.FC<{ href: string; label: string; active?: boolean }> = ({ href, label, active }) => (
   <a
@@ -130,6 +131,9 @@ const ZeflashLanding: React.FC = () => {
             </Link>
           </nav>
           <div className="flex items-center gap-2 sm:gap-3">
+            <SignedIn>
+              <CreditsWallet size="sm" showLabel={false} className="hidden sm:flex" />
+            </SignedIn>
             <SignedOut>
               <SignUpButton mode="modal">
                 <button className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-purple-500 to-purple-600 text-white text-xs sm:text-sm font-semibold px-3 sm:px-5 py-2 hover:from-purple-600 hover:to-purple-700 shadow-md shadow-purple-200/40 transition-all">

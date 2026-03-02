@@ -586,7 +586,7 @@ const BatteryReport: React.FC = () => {
       navigate('/stations');
       return;
     }
-    navigate(`/report/${deviceId}/checkout`);
+    navigate(`/report/${deviceId}/ai`);
   }, [deviceId, navigate]);
 
   return (
@@ -646,7 +646,7 @@ const BatteryReport: React.FC = () => {
                 className="flex items-center px-2 sm:px-3 py-2 rounded-lg text-gray-600 hover:text-blue-600 transition-colors hover:bg-gray-100"
               >
                 <FileText className="sm:mr-2" size={18} />
-                <span className="hidden sm:inline">Unlock AI (₹99)</span>
+                <span className="hidden sm:inline">Open AI Report</span>
               </button>
               <button
                 aria-label="Share"
@@ -791,7 +791,7 @@ const BatteryReport: React.FC = () => {
                   className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
                 >
                   <Lock size={14} />
-                  <span>Unlock AI Benchmarks (₹99)</span>
+                  <span>Open AI Benchmarks</span>
                 </button>
                 <button
                   onClick={handleComingSoon}
@@ -883,7 +883,7 @@ const BatteryReport: React.FC = () => {
                     onClick={handleUnlockAI}
                     className="mt-3 inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
                   >
-                    Unlock AI Report (₹99)
+                    Open AI Report
                   </button>
                 </div>
               </div>
@@ -989,7 +989,7 @@ const BatteryReport: React.FC = () => {
                   onClick={handleUnlockAI}
                   className="mt-3 inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
                 >
-                  Unlock AI Report (₹99)
+                  Open AI Report
                 </button>
               </div>
             </div>
