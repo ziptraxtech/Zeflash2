@@ -196,12 +196,20 @@ setErrorMessage(null);
         description: planDetails.name,
         handler: (response) => {
           void (async () => {
-            const confirmToken = await getToken();
+            // Force a fresh token — bypasses cache which may be stale after the
+            // user spends time in the Razorpay modal / external UPI app.
+            let confirmToken = await getToken({ skipCache: true });
+
+            // If the force-refresh fails, fall back to a cached token once.
+            if (!confirmToken) {
+              confirmToken = await getToken();
+            }
+
             if (!confirmToken) {
               throw new Error('Session expired while confirming payment. Please sign in again.');
             }
 
-            const confirmResponse = await fetch(`${API_URL}/confirm-payment`, {
+            let confirmResponse = await fetch(`${API_URL}/confirm-payment`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -209,6 +217,22 @@ setErrorMessage(null);
               },
               body: JSON.stringify(response)
             });
+
+            // If auth fails (401 invalid/expired token), do one retry with a
+            // brand-new token fetch before giving up.
+            if (confirmResponse.status === 401) {
+              const retryToken = await getToken({ skipCache: true });
+              if (retryToken) {
+                confirmResponse = await fetch(`${API_URL}/confirm-payment`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${retryToken}`
+                  },
+                  body: JSON.stringify(response)
+                });
+              }
+            }
 
             const confirmText = await confirmResponse.text();
             let confirmPayload: any = {};
@@ -235,7 +259,16 @@ setErrorMessage(null);
             });
           })().catch((confirmError: any) => {
             console.error('Payment confirmation error:', confirmError);
-            setErrorMessage(confirmError.message || 'Payment succeeded but credits are pending. Please refresh in 30 seconds.');
+            // Payment was captured by Razorpay. Credits will be added automatically
+            // via the server-side webhook within a few minutes. Prompt the user to wait.
+            const isPending = confirmError.message?.toLowerCase().includes('token') ||
+              confirmError.message?.toLowerCase().includes('auth') ||
+              confirmError.message?.toLowerCase().includes('session');
+            setErrorMessage(
+              isPending
+                ? 'Payment successful! Your credits are being processed and will appear in your ZeVault within 1–2 minutes. You can safely refresh the app.'
+                : confirmError.message || 'Payment succeeded but credits are pending. Please refresh in 30 seconds.'
+            );
             setStatus('error');
           });
         },
