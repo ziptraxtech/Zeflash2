@@ -19,7 +19,7 @@ const PricingPlans: React.FC = () => {
         // Map slider steps to actual months: 0→12, 1→18, 2→24
         const monthOptions = [12, 18, 24];
         const months = monthOptions[monthStep];
-        
+
         // Custom plan pricing - fixed per-test prices by validity
         // 12 months: ₹200/test
         // 18 months: ₹190/test

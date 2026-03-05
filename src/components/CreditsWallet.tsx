@@ -68,8 +68,8 @@ const CreditsWallet: React.FC<CreditsWalletProps> = ({
     <div className={`inline-flex items-center gap-2 ${className}`} title="1 test = 1 ZeVault credit">
       {/* ZeVault Credits Display */}
       <Link
-        to="/plans"
-        className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 px-3 py-1.5 hover:from-violet-700 hover:to-indigo-700 transition-all shadow-sm hover:shadow-md"
+        to="/zevault"
+        className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-xs sm:text-sm font-semibold px-2 sm:px-4 py-2 hover:from-blue-600 hover:to-indigo-700 shadow-md shadow-blue-200/40 transition-all"
       >
         <Zap size={iconSize} className="text-yellow-300" fill="currentColor" />
         {loading ? (
@@ -91,7 +91,7 @@ const CreditsWallet: React.FC<CreditsWalletProps> = ({
       {/* Add Credits prompt when empty */}
       {credits === 0 && (
         <Link
-          to="/plans"
+          to="/zevault"
           className={`inline-flex items-center gap-1 rounded-lg border border-violet-300 text-violet-700 font-semibold ${badgeSize} hover:bg-violet-50 transition-all`}
         >
           <Plus size={iconSize - 2} />
