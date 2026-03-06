@@ -101,49 +101,6 @@ const PricingPlans: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
-            {/* Test Plan - ₹1 */}
-            <div className="relative rounded-2xl border-2 border-purple-400 bg-gradient-to-br from-purple-50 to-white p-6 hover:shadow-lg transition-all">
-              <div className="absolute -top-3 right-4">
-                <span className="inline-block rounded-full bg-purple-500 px-3 py-1 text-xs font-bold text-white shadow-md">
-                  TEST
-                </span>
-              </div>
-              <div className="mb-4">
-                <h3 className="text-xl font-bold text-gray-900">Test Plan</h3>
-                <p className="text-sm text-gray-600 mt-1">Development only</p>
-              </div>
-              <div className="mb-6">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-extrabold text-purple-700">₹1</span>
-                </div>
-                <p className="text-xs text-gray-600 mt-1">₹1/test • For testing</p>
-              </div>
-              <ul className="space-y-3 mb-6">
-                <li className="flex items-start gap-2 text-sm text-gray-700">
-                  <CheckCircle className="text-purple-600 mt-0.5 flex-shrink-0" size={16} />
-                  <span>1 complete diagnostic test</span>
-                </li>
-                <li className="flex items-start gap-2 text-sm text-gray-700">
-                  <CheckCircle className="text-purple-600 mt-0.5 flex-shrink-0" size={16} />
-                  <span>Instant AI health report</span>
-                </li>
-                <li className="flex items-start gap-2 text-sm text-gray-700">
-                  <CheckCircle className="text-purple-600 mt-0.5 flex-shrink-0" size={16} />
-                  <span>All features included</span>
-                </li>
-                <li className="flex items-start gap-2 text-sm text-gray-700">
-                  <CheckCircle className="text-purple-600 mt-0.5 flex-shrink-0" size={16} />
-                  <span>Development testing only</span>
-                </li>
-              </ul>
-              <Link
-                to="/checkout?plan=test&tests=1&months=0&price=1"
-                className="block w-full text-center rounded-lg bg-purple-600 text-white font-semibold px-4 py-2.5 hover:bg-purple-700 transition-colors shadow-sm"
-              >
-                Test Plan
-              </Link>
-            </div>
-
             {/* First Time Trial */}
             <div className="relative rounded-2xl border-2 border-emerald-400 bg-gradient-to-br from-emerald-50 to-white p-6 hover:shadow-lg transition-all">
               <div className="absolute -top-3 right-4">
