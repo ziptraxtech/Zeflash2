@@ -9,6 +9,7 @@ import json
 import uuid
 import asyncio
 import subprocess
+import requests
 from datetime import datetime
 from typing import Dict, Optional
 from fastapi import FastAPI, HTTPException, BackgroundTasks
@@ -26,6 +27,7 @@ load_dotenv()
 TOKEN_ENDPOINT = os.environ.get("TOKEN_ENDPOINT", "https://cms.charjkaro.in/admin/api/v1/zipbolt/token")
 API_BASE_URL = os.environ.get("API_BASE_URL", "https://uat.cms.gaadin.live/commands/secure/api/v1/get/charger/time_lapsed")
 LOCAL_REPORTS_DIR = os.environ.get("LOCAL_REPORTS_DIR", None)
+BACKEND_API_URL = os.environ.get("BACKEND_API_URL", "http://localhost:3001")  # Backend URL for saving results
 
 # ============ FastAPI App ============
 app = FastAPI(
@@ -81,6 +83,50 @@ def get_auth_token() -> str:
     except Exception as e:
         print(f"Error fetching auth token: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch auth token: {str(e)}")
+
+def save_inference_result_to_db(result: Dict) -> bool:
+    """Save inference result to Neon database via backend API"""
+    try:
+        if not result:
+            print("[WARN] No result to save to database")
+            return False
+        
+        # Format for API
+        payload = {
+            "device_id": result.get("device_id"),
+            "evse_id": result.get("evse_id", result.get("device_id", "").split("_")[0]),
+            "connector_id": result.get("connector_id", 1),
+            "status": result.get("status"),
+            "anomalies": result.get("anomalies", {}),
+            "total_samples": result.get("total_samples", 0),
+            "total_anomalies": result.get("total_anomalies", 0),
+            "generated_at": result.get("generated_at"),
+            "data_points": result.get("data_points", 0),
+            "s3_url": result.get("s3_url", ""),
+            "s3_key": result.get("s3_key", ""),
+            "timing": {
+                "inference_time_ms": 0,
+                "total_time_ms": 0
+            }
+        }
+        
+        # Save to database
+        response = requests.post(
+            f"{BACKEND_API_URL}/api/inference/results",
+            json=payload,
+            timeout=10
+        )
+        
+        if response.status_code in [200, 201]:
+            print(f"[OK] Inference result saved to database for {payload['device_id']}")
+            return True
+        else:
+            print(f"[WARN] Failed to save to database: {response.status_code} - {response.text}")
+            return False
+    
+    except Exception as e:
+        print(f"[WARN] Error saving to database: {e}")
+        return False
 
 async def run_ml_inference_task(job_id: str, evse_id: str, connector_id: int, limit: int):
     """Background task to run ML inference"""
@@ -356,7 +402,7 @@ async def run_inference_direct(request: InferenceRequest):
         # Format standardized response
         total_time = int((time.time() - start_time) * 1000)
         
-        return {
+        response_data = {
             "device_id": device_id,
             "evse_id": request.evse_id,
             "connector_id": request.connector_id,
@@ -373,6 +419,17 @@ async def run_inference_direct(request: InferenceRequest):
                 "total_time_ms": total_time
             }
         }
+        
+        # Save to database (non-blocking)
+        import threading
+        db_thread = threading.Thread(
+            target=save_inference_result_to_db,
+            args=(response_data,),
+            daemon=True
+        )
+        db_thread.start()
+        
+        return response_data
     
     except HTTPException:
         raise

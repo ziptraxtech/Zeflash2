@@ -25,6 +25,7 @@
     "lucide-react": "^0.303.0",
     "node-fetch": "^2.7.0",
     "papaparse": "^5.4.1",
+    "pg": "^8.20.0",
     "prisma": "^6.19.2",
     "razorpay": "^2.9.6",
     "react": "^18.2.0",

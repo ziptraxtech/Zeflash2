@@ -7,6 +7,7 @@ import { confirmPaymentRouter } from './routes/confirmPayment';
 import { webhookRouter } from './routes/webhook';
 import { generateReportRouter } from './routes/generateReport';
 import { reportsRouter } from './routes/reports';
+import inferenceResultsRouter from './routes/inferenceResults';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -14,7 +15,7 @@ const PORT = process.env.PORT || 3001;
 // CORS — allow Vercel frontend
 app.use(cors({
   origin: ['https://zeflash.app', 'https://zeflash.vercel.app', 'http://localhost:5173'],
-  methods: ['GET', 'POST', 'OPTIONS'],
+  methods: ['GET', 'POST', 'OPTIONS', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
@@ -36,6 +37,7 @@ app.use('/confirm-payment', confirmPaymentRouter);
 app.use('/webhook', webhookRouter);
 app.use('/generate-report', generateReportRouter);
 app.use('/reports', reportsRouter);
+app.use('/api/inference', inferenceResultsRouter);
 
 // 404
 app.use((_req, res) => {
