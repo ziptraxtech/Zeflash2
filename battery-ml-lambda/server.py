@@ -265,6 +265,123 @@ async def get_job_result(job_id: str):
         "result": job.result
     }
 
+@app.post("/api/v1/infer")
+async def run_inference_direct(request: InferenceRequest):
+    """
+    Direct inference endpoint - returns standardized JSON response
+    
+    Returns:
+    {
+      "device_id": "EVSE_ID_CONNECTOR",
+      "status": "Stable",
+      "anomalies": {"critical": 0, "high": 2, "medium": 0, "low": 10},
+      "total_samples": 25,
+      "total_anomalies": 12,
+      "generated_at": "2026-03-13T10:30:45...",
+      "data_points": 25,
+      "s3_url": "https://...",
+      "timing": {"inference_time_ms": 250, "total_time_ms": 1200}
+    }
+    """
+    import time
+    start_time = time.time()
+    
+    try:
+        # Build device ID
+        device_id = f"{request.evse_id}_{request.connector_id}"
+        
+        # Get auth token
+        auth_token = get_auth_token()
+        
+        # Build API URL
+        api_url = f"{API_BASE_URL}?role=Admin&operator=All&evse_id={request.evse_id}&connector_id={request.connector_id}&page=1&limit={request.limit}"
+        
+        # Run inference pipeline in subprocess
+        inference_start = time.time()
+        cmd = [
+            sys.executable,
+            "inference_pipeline.py",
+            device_id,
+            "--api-url", api_url,
+            "--auth-token", auth_token,
+            "--auth-scheme", "Bearer",
+            "--limit", str(request.limit)
+        ]
+        
+        # Create subprocess environment
+        subprocess_env = os.environ.copy()
+        subprocess_env.pop('AWS_ACCESS_KEY_ID', None)
+        subprocess_env.pop('AWS_SECRET_ACCESS_KEY', None)
+        subprocess_env.pop('AWS_SESSION_TOKEN', None)
+        
+        # Execute inference
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            env=subprocess_env
+        )
+        
+        stdout, stderr = await process.communicate()
+        inference_time = int((time.time() - inference_start) * 1000)
+        
+        stdout_str = stdout.decode('utf-8', errors='replace') if stdout else ""
+        stderr_str = stderr.decode('utf-8', errors='replace') if stderr else ""
+        
+        if process.returncode != 0:
+            error_msg = stderr_str if stderr_str else stdout_str[-500:]
+            raise HTTPException(
+                status_code=500,
+                detail=f"Inference failed: {error_msg}"
+            )
+        
+        # Parse result from stdout (last JSON object)
+        import json
+        result = None
+        for line in reversed(stdout_str.split('\n')):
+            try:
+                if line.strip().startswith('{'):
+                    result = json.loads(line)
+                    break
+            except:
+                continue
+        
+        if not result:
+            raise HTTPException(
+                status_code=500,
+                detail="Could not parse inference results"
+            )
+        
+        # Format standardized response
+        total_time = int((time.time() - start_time) * 1000)
+        
+        return {
+            "device_id": device_id,
+            "evse_id": request.evse_id,
+            "connector_id": request.connector_id,
+            "status": result.get("status", "Unknown"),
+            "anomalies": result.get("anomalies", {}),
+            "total_samples": result.get("total_samples", 0),
+            "total_anomalies": result.get("total_anomalies", 0),
+            "generated_at": result.get("generated_at", datetime.now().isoformat()),
+            "data_points": result.get("data_points", 0),
+            "s3_url": result.get("s3_url", ""),
+            "s3_key": result.get("s3_key", ""),
+            "timing": {
+                "inference_time_ms": inference_time,
+                "total_time_ms": total_time
+            }
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error running inference: {str(e)}"
+        )
+
 @app.get("/api/v1/reports/{device_id}/battery_health_report.png")
 @app.head("/api/v1/reports/{device_id}/battery_health_report.png")
 async def get_local_report_image(device_id: str):
