@@ -1,0 +1,70 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-1.0.x", "rhel-openssl-3.0.x", "linux-musl", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  clerkUserId  String   @unique
+  email        String   @unique
+  createdAt    DateTime @default(now())
+
+  credits      Credit?
+  transactions CreditTransaction[]
+  payments     Payment[]
+  reports      Report[]
+}
+
+model Credit {
+  id        String @id @default(cuid())
+  userId    String @unique
+  total     Int    @default(0)
+  used      Int    @default(0)
+  remaining Int    @default(0)
+
+  user      User   @relation(fields: [userId], references: [id])
+}
+
+model CreditTransaction {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  credits   Int
+  note      String?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Payment {
+  id                  String    @id @default(cuid())
+  userId              String
+  razorpayOrderId     String    @unique
+  razorpayPaymentId   String?   @unique
+  amount              Int
+  credits             Int
+  status              String    @default("created")
+  processedAt         DateTime?
+  createdAt           DateTime  @default(now())
+
+  user                User      @relation(fields: [userId], references: [id])
+}
+
+model Report {
+  id        String   @id @default(cuid())
+  userId    String
+  evseId    String
+  connector Int
+  status    String   @default("processing")
+  s3Url     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id])
+}

@@ -1,12 +1,14 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, MapPin, ArrowLeft, BarChart3, Zap, Clock, CheckCircle, Users, X, Activity, Thermometer, RefreshCw, Download } from 'lucide-react';
+import { API_URL } from '../config/api';
+import { Search, MapPin, ArrowLeft, BarChart3, Zap, CheckCircle, Users, X, Activity, Thermometer, RefreshCw, Download } from 'lucide-react';
 import Papa from 'papaparse';
 import * as mlService from '../services/mlService';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import { useUser, SignInButton } from '@clerk/clerk-react';
+import { useAuth, useUser, SignInButton } from '@clerk/clerk-react';
 import { useAIReportPayment } from '../hooks/useAIReportPayment';
+import CreditsWallet from './CreditsWallet';
 import {
   ResponsiveContainer,
   BarChart,
@@ -55,8 +57,44 @@ type Station = {
   evses: Evse[];
 };
 
+type PreviousTest = {
+  id: string;
+  evseId: string;
+  connector: number;
+  status: string;
+  s3Url?: string | null;
+  createdAt: string;
+};
+
+const getDefaultAiImageUrl = (evseId: string, connector: number) =>
+  `https://battery-ml-results-test.s3.us-east-1.amazonaws.com/battery-reports/${evseId}_${connector}/battery_health_report.png`;
+
+const resolveAiImageUrl = (rawUrl: string | null | undefined, evseId: string, connector: number) => {
+  const fallback = getDefaultAiImageUrl(evseId, connector);
+  if (!rawUrl) return fallback;
+
+  try {
+    const parsed = new URL(rawUrl);
+    const host = parsed.host;
+    const cleanPath = parsed.pathname;
+
+    if (cleanPath.endsWith('.png')) {
+      return `${parsed.origin}${cleanPath}`;
+    }
+
+    if (cleanPath.endsWith('/')) {
+      return `${parsed.protocol}//${host}${cleanPath}battery_health_report.png`;
+    }
+
+    return `${parsed.protocol}//${host}${cleanPath}/battery_health_report.png`;
+  } catch {
+    return fallback;
+  }
+};
+
 const ChargingStations: React.FC = () => {
   const { user, isLoaded } = useUser();
+  const { getToken } = useAuth();
   const { initiatePayment } = useAIReportPayment();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'All' | 'Online' | 'Offline'>('All');
@@ -68,6 +106,10 @@ const ChargingStations: React.FC = () => {
     open: false,
     evseId: ''
   });
+  const [availableCredits, setAvailableCredits] = useState<number>(0);
+  const [creditsLoading, setCreditsLoading] = useState<boolean>(false);
+  const [previousTests, setPreviousTests] = useState<PreviousTest[]>([]);
+  const [historyLoading, setHistoryLoading] = useState<boolean>(false);
   const [reportModal, setReportModal] = useState<{ open: boolean; evseId: string; connectorId: number; data: any; loading: boolean; error: string; aiImageUrl?: string; aiLoading?: boolean; aiError?: string; paymentPending?: boolean; paymentError?: string }>({
     open: false,
     evseId: '',
@@ -164,6 +206,61 @@ const ChargingStations: React.FC = () => {
     }
   };
 
+  const handleUseCredits = async () => {
+    const evseId = couponModalState.evseId;
+    const connectorId = reportModal.connectorId || 1;
+    setCouponModalState({ open: false, evseId: '' });
+    setTempCouponInput('');
+    setReportModal((prev) => ({
+      ...prev,
+      paymentPending: false,
+      paymentError: '',
+      aiLoading: true,
+      aiError: '',
+      aiImageUrl: ''
+    }));
+
+    try {
+      const token = await getToken();
+      if (!token) throw new Error('Please sign in to use credits.');
+
+      const response = await fetch(`${API_URL}/generate-report`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ evse_id: evseId, connector_id: connectorId }),
+      });
+
+      const responseText = await response.text();
+      const payload = responseText ? JSON.parse(responseText) : {};
+
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to generate AI report using credits.');
+      }
+
+      const fallbackImageUrl = getDefaultAiImageUrl(evseId, connectorId);
+      const resolvedUrl = resolveAiImageUrl(payload.s3Url || fallbackImageUrl, evseId, connectorId);
+
+      setReportModal((prev) => ({
+        ...prev,
+        aiImageUrl: `${resolvedUrl}${resolvedUrl.includes('?') ? '&' : '?'}t=${Date.now()}`,
+        aiLoading: false,
+        aiError: '',
+      }));
+
+      setAvailableCredits((prev) => Math.max(0, prev - 1));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to use credits for AI report generation.';
+      setReportModal((prev) => ({
+        ...prev,
+        aiLoading: false,
+        aiError: message,
+      }));
+    }
+  };
+
   // Proceed with payment
   const proceedWithPayment = async (evseId: string, deviceId: string, amount: number, coupon: string) => {
     try {
@@ -246,6 +343,100 @@ const ChargingStations: React.FC = () => {
     setCouponModalState({ open: true, evseId });
     setTempCouponInput('');
   };
+
+  const openPreviousTestInStationPreview = async (test: PreviousTest) => {
+    const deviceId = `${test.evseId}_${test.connector}`;
+    const normalizedAiUrl = resolveAiImageUrl(test.s3Url, test.evseId, test.connector);
+    setReportModal((prev) => ({
+      ...prev,
+      open: true,
+      evseId: test.evseId,
+      connectorId: test.connector,
+      loading: true,
+      error: '',
+      aiImageUrl: `${normalizedAiUrl}?t=${Date.now()}`,
+      aiLoading: false,
+      aiError: '',
+      paymentPending: false,
+      paymentError: ''
+    }));
+    await fetchChargerReport(test.evseId, test.connector, true);
+    console.log('Opened previous test in station preview:', deviceId);
+  };
+
+  useEffect(() => {
+    if (!couponModalState.open || !user) return;
+
+    const loadCredits = async () => {
+      try {
+        setCreditsLoading(true);
+        const token = await getToken();
+        if (!token) {
+          setAvailableCredits(0);
+          return;
+        }
+        const response = await fetch(`${API_URL}/credits`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (!response.ok) {
+          setAvailableCredits(0);
+          return;
+        }
+        const data = await response.json();
+        setAvailableCredits(data.remaining ?? 0);
+      } catch {
+        setAvailableCredits(0);
+      } finally {
+        setCreditsLoading(false);
+      }
+    };
+
+    loadCredits();
+  }, [couponModalState.open, getToken, user]);
+
+  useEffect(() => {
+    if (!user) {
+      setPreviousTests([]);
+      return;
+    }
+
+    const loadHistory = async () => {
+      try {
+        setHistoryLoading(true);
+        const token = await getToken();
+        if (!token) {
+          setPreviousTests([]);
+          return;
+        }
+
+        const response = await fetch(`${API_URL}/reports`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          setPreviousTests([]);
+          return;
+        }
+
+        const data = await response.json();
+        const history = (data.reports || [])
+          .filter((report: PreviousTest) => report.status === 'completed' && report.s3Url)
+          .slice(0, 6);
+
+        setPreviousTests(history);
+      } catch {
+        setPreviousTests([]);
+      } finally {
+        setHistoryLoading(false);
+      }
+    };
+
+    loadHistory();
+  }, [getToken, user]);
 
   // These 6 stations are marked as online
   const onlineStationNames = [
@@ -457,6 +648,9 @@ const ChargingStations: React.FC = () => {
                 <h1 className="text-2xl font-extrabold text-blue-900 tracking-tight">Zeflash</h1>
               </div>
             </div>
+            
+            {/* Credits Wallet */}
+            <CreditsWallet size="md" />
           </div>
         </div>
       </header>
@@ -469,35 +663,77 @@ const ChargingStations: React.FC = () => {
           <p className="text-gray-600 text-lg sm:text-xl max-w-2xl">Get instant access to Zeflash-enabled EV charging stations near you. Book your rapid battery test in minutes.</p>
         </div>
 
+        {/* Previous Tests History */}
+        {user && (
+          <div className="mb-12 rounded-2xl border border-blue-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-900">Previous Tests History</h3>
+              <span className="text-xs text-gray-500">Latest 6 reports</span>
+            </div>
+
+            {historyLoading ? (
+              <p className="text-sm text-gray-500">Loading previous tests…</p>
+            ) : previousTests.length === 0 ? (
+              <p className="text-sm text-gray-500">No previous AI report history found yet.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {previousTests.map((test) => {
+                  const deviceId = `${test.evseId}_${test.connector}`;
+                  return (
+                    <div key={test.id} className="rounded-xl border border-gray-200 bg-gray-50 overflow-hidden">
+                      <div className="h-36 bg-white border-b border-gray-200">
+                        <img
+                          src={`${resolveAiImageUrl(test.s3Url, test.evseId, test.connector)}?t=${Date.now()}`}
+                          alt={`AI report ${deviceId}`}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                          onError={(e) => {
+                            const fallback = `${getDefaultAiImageUrl(test.evseId, test.connector)}?t=${Date.now()}`;
+                            if ((e.currentTarget as HTMLImageElement).src !== fallback) {
+                              (e.currentTarget as HTMLImageElement).src = fallback;
+                            }
+                          }}
+                        />
+                      </div>
+                      <div className="p-3 space-y-1">
+                        <p className="text-sm font-semibold text-gray-900 truncate">{deviceId}</p>
+                        <p className="text-xs text-gray-500">{new Date(test.createdAt).toLocaleString()}</p>
+                        <button
+                          onClick={() => void openPreviousTestInStationPreview(test)}
+                          className="mt-2 w-full rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 transition-colors"
+                        >
+                          Open in Station Preview
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Stats Section */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12">
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-blue-700">Online Stations</h3>
-              <Zap className="w-5 h-5 text-blue-600" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-12">
+            <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 hover:bg-blue-100 transition-colors text-center">
+              <div className="text-xs text-blue-700 font-semibold">Instant Health Report</div>
+              <div className="text-3xl font-extrabold text-blue-700 mt-1">20 Min <span role='img' aria-label='check'>✅</span></div>
             </div>
-            <p className="text-3xl font-extrabold text-blue-900">{
-              stations.filter((s) => isStationOnline(s.name)).length
-            }</p>
-            <p className="text-xs text-blue-600 mt-1">Ready to serve you</p>
-          </div>
-          <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 border border-cyan-200 rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-cyan-700">Test Duration</h3>
-              <Clock className="w-5 h-5 text-cyan-600" />
+            <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 transition-colors text-center">
+              <div className="text-xs text-emerald-700 font-semibold">ML Accuracy</div>
+              <div className="text-3xl font-extrabold text-emerald-700 mt-1">94.66%</div>
             </div>
-            <p className="text-3xl font-extrabold text-cyan-900">20 min</p>
-            <p className="text-xs text-cyan-600 mt-1">Quick & accurate</p>
-          </div>
-          <div className="bg-gradient-to-br from-teal-50 to-teal-100 border border-teal-200 rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-teal-700">Accuracy</h3>
-              <CheckCircle className="w-5 h-5 text-teal-600" />
+            <div className="p-4 rounded-xl bg-violet-50 border border-violet-100 hover:bg-violet-100 transition-colors text-center">
+              <div className="text-xs text-violet-700 font-semibold">Precision</div>
+              <div className="text-xs text-violet-600 mt-1">[Excellent True Positives]</div>
+              <div className="text-2xl font-extrabold text-violet-700 mt-2">91.8%</div>
             </div>
-            <p className="text-3xl font-extrabold text-teal-900">90%+</p>
-            <p className="text-xs text-teal-600 mt-1">Highly reliable</p>
+            <div className="p-4 rounded-xl bg-orange-50 border border-orange-100 hover:bg-orange-100 transition-colors text-center">
+              <div className="text-xs text-orange-700 font-semibold">False Negative Rate</div>
+              <div className="text-xs text-orange-600 mt-1">[Low Misdetection]</div>
+              <div className="text-2xl font-extrabold text-orange-700 mt-2">6.1%</div>
+            </div>
           </div>
-        </div>
 
         {/* Search and Filter Section */}
         <div className="sticky top-20 z-30 bg-white/95 backdrop-blur rounded-2xl shadow-lg p-6 mb-12 border border-blue-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -1057,7 +1293,7 @@ const ChargingStations: React.FC = () => {
                   </div>
                   <p className="ml-3 text-gray-600">Loading report...</p>
                 </div>
-              ) : reportModal.error ? (
+              ) : reportModal.error && !reportModal.aiImageUrl ? (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                   <p className="text-red-800 font-semibold">Error loading report</p>
                   <p className="text-red-600 text-sm mt-1">{reportModal.error}</p>
@@ -1135,14 +1371,14 @@ const ChargingStations: React.FC = () => {
                   </div>
 
                   {/* AI Health Report Error */}
-                  {reportModal.aiError && (
+                  {(reportModal.aiError || reportModal.error) && (
                     <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                       <p className="text-red-800 font-semibold">AI Report Error</p>
-                      <p className="text-red-600 text-sm mt-1">{reportModal.aiError}</p>
+                      <p className="text-red-600 text-sm mt-1">{reportModal.aiError || reportModal.error}</p>
                       <div className="mt-3 pt-3 border-t border-red-200">
                         <p className="text-xs text-gray-700 mb-2">Try accessing S3 URL directly:</p>
                         <a 
-                          href={`https://battery-ml-results-test.s3.us-east-1.amazonaws.com/battery-reports/${reportModal.evseId}_${reportModal.connectorId}/battery_health_report.png`}
+                          href={resolveAiImageUrl(reportModal.aiImageUrl, reportModal.evseId, reportModal.connectorId)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-xs text-blue-600 hover:text-blue-800 underline break-all"
@@ -1182,12 +1418,23 @@ const ChargingStations: React.FC = () => {
                           crossOrigin="anonymous"
                           onError={() => {
                             console.error('Image failed to load:', reportModal.aiImageUrl);
-                            setReportModal((prev) => ({ 
-                              ...prev, 
-                              aiError: 'Failed to load AI report image. The image may still be generating. Please try again in a moment.',
-                              aiLoading: false,
-                              aiImageUrl: ''
-                            }));
+                            setReportModal((prev) => {
+                              const fallbackUrl = `${getDefaultAiImageUrl(prev.evseId, prev.connectorId)}?t=${Date.now()}`;
+                              if (prev.aiImageUrl && prev.aiImageUrl !== fallbackUrl) {
+                                return {
+                                  ...prev,
+                                  aiImageUrl: fallbackUrl,
+                                  aiLoading: false,
+                                  aiError: ''
+                                };
+                              }
+                              return {
+                                ...prev,
+                                aiError: 'Failed to load AI report image. The image may still be generating. Please try again in a moment.',
+                                aiLoading: false,
+                                aiImageUrl: ''
+                              };
+                            });
                           }}
                         />
                       </div>
@@ -1472,6 +1719,15 @@ const ChargingStations: React.FC = () => {
               <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 border border-purple-200">
                 <p className="text-sm font-semibold text-gray-900 mb-2">Pricing:</p>
                 <div className="space-y-2 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-700">Available Credits:</span>
+                    <span className="font-semibold text-emerald-700">
+                      {creditsLoading ? 'Loading…' : availableCredits}
+                    </span>
+                  </div>
+                  <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-2 py-1">
+                    1 credit = 1 AI report generation.
+                  </p>
                   {tempCouponInput ? (
                     <>
                       <div className="flex justify-between items-center">
@@ -1510,10 +1766,21 @@ const ChargingStations: React.FC = () => {
                 Cancel
               </button>
               <button
+                onClick={handleUseCredits}
+                disabled={creditsLoading || availableCredits < 1}
+                className={`flex-1 px-4 py-3 font-semibold rounded-lg transition-all shadow-lg hover:shadow-xl ${
+                  creditsLoading || availableCredits < 1
+                    ? 'bg-emerald-200 text-emerald-700 cursor-not-allowed'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                }`}
+              >
+                {creditsLoading ? 'Checking Credits…' : availableCredits > 0 ? 'Use 1 Credit' : 'No Credits'}
+              </button>
+              <button
                 onClick={handleCouponSubmit}
                 className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold rounded-lg transition-all shadow-lg hover:shadow-xl"
               >
-                Continue
+                Pay & Continue
               </button>
             </div>
           </div>
