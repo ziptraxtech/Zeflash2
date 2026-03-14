@@ -91,6 +91,8 @@ def save_inference_result_to_db(result: Dict) -> bool:
             print("[WARN] No result to save to database")
             return False
         
+        print(f"[DB] Starting database save for device_id: {result.get('device_id')}")
+        
         # Format for API
         payload = {
             "device_id": result.get("device_id"),
@@ -104,28 +106,35 @@ def save_inference_result_to_db(result: Dict) -> bool:
             "data_points": result.get("data_points", 0),
             "s3_url": result.get("s3_url", ""),
             "s3_key": result.get("s3_key", ""),
-            "timing": {
-                "inference_time_ms": 0,
-                "total_time_ms": 0
-            }
+            "timing": result.get("timing", {})
         }
         
+        print(f"[DB] Payload: {payload}")
+        
         # Save to database
+        url = f"{BACKEND_API_URL}/api/inference/results"
+        print(f"[DB] Sending POST to: {url}")
+        
         response = requests.post(
-            f"{BACKEND_API_URL}/api/inference/results",
+            url,
             json=payload,
             timeout=10
         )
         
+        print(f"[DB] Response status: {response.status_code}")
+        print(f"[DB] Response body: {response.text[:300]}")
+        
         if response.status_code in [200, 201]:
-            print(f"[OK] Inference result saved to database for {payload['device_id']}")
+            print(f"[OK] ✅ Inference result saved to database for {payload['device_id']}")
             return True
         else:
-            print(f"[WARN] Failed to save to database: {response.status_code} - {response.text}")
+            print(f"[WARN] ❌ Failed to save to database: {response.status_code} - {response.text}")
             return False
     
     except Exception as e:
-        print(f"[WARN] Error saving to database: {e}")
+        print(f"[WARN] ❌ Error saving to database: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 async def run_ml_inference_task(job_id: str, evse_id: str, connector_id: int, limit: int):
@@ -197,6 +206,27 @@ async def run_ml_inference_task(job_id: str, evse_id: str, connector_id: int, li
             jobs[job_id].status = "completed"
             jobs[job_id].progress = 100
             jobs[job_id].message = "ML inference completed successfully"
+            
+            # Parse result from stdout
+            import json
+            result = None
+            print(f"[Job {job_id}] Parsing inference result from stdout...")
+            print(f"[Job {job_id}] STDOUT content (last 500 chars): {stdout_str[-500:]}")
+            
+            for line in reversed(stdout_str.split('\n')):
+                try:
+                    if line.strip().startswith('{'):
+                        result = json.loads(line)
+                        print(f"[Job {job_id}] ✅ Successfully parsed JSON result: {list(result.keys())}")
+                        break
+                except json.JSONDecodeError as e:
+                    print(f"[Job {job_id}] JSON parse error on line: {e}")
+                    continue
+            
+            if result is None:
+                print(f"[Job {job_id}] ⚠️  WARNING: Could not parse inference result from stdout!")
+                print(f"[Job {job_id}] This means the inference_pipeline.py did not output JSON")
+            
             jobs[job_id].result = {
                 "device_id": device_id,
                 "evse_id": evse_id,
@@ -206,6 +236,38 @@ async def run_ml_inference_task(job_id: str, evse_id: str, connector_id: int, li
                 "timestamp": datetime.now().isoformat(),
                 "stdout": stdout_str[:1000],  # First 1000 chars
             }
+            
+            # Save to database (non-blocking via threading)
+            if result:
+                print(f"[Job {job_id}] 📤 Preparing database save payload...")
+                response_data = {
+                    "device_id": device_id,
+                    "evse_id": evse_id,
+                    "connector_id": connector_id,
+                    "status": result.get("status", "Unknown"),
+                    "anomalies": result.get("anomalies", {}),
+                    "total_samples": result.get("total_samples", 0),
+                    "total_anomalies": result.get("total_anomalies", 0),
+                    "generated_at": result.get("generated_at", datetime.now().isoformat()),
+                    "data_points": result.get("data_points", 0),
+                    "s3_url": result.get("s3_url", ""),
+                    "s3_key": result.get("s3_key", ""),
+                    "timing": {
+                        "inference_time_ms": result.get("inference_time_ms", 0),
+                        "total_time_ms": result.get("total_time_ms", 0)
+                    }
+                }
+                
+                import threading
+                db_thread = threading.Thread(
+                    target=save_inference_result_to_db,
+                    args=(response_data,),
+                    daemon=True
+                )
+                db_thread.start()
+                print(f"[Job {job_id}] ✅ Database save triggered in background thread")
+            else:
+                print(f"[Job {job_id}] ⚠️  Skipping database save - result is None")
         else:
             # Extract the actual error from stdout (where our script prints errors)
             error_lines = []

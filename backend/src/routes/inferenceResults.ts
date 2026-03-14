@@ -86,8 +86,8 @@ router.get("/results", async (req: Request, res: Response) => {
     const { evse_id, status, limit = 100, offset = 0 } = req.query;
 
     const where: any = {};
-    if (evse_id) where.evseId = evse_id;
-    if (status) where.status = status;
+    if (evse_id) where.evseId = Array.isArray(evse_id) ? evse_id[0] : evse_id;
+    if (status) where.status = Array.isArray(status) ? status[0] : status;
 
     const results = await prisma.inferenceResult.findMany({
       where,
@@ -122,7 +122,7 @@ router.get("/results", async (req: Request, res: Response) => {
  */
 router.get("/results/:device_id", async (req: Request, res: Response) => {
   try {
-    const { device_id } = req.params;
+    const device_id = Array.isArray(req.params.device_id) ? req.params.device_id[0] : req.params.device_id;
 
     const result = await prisma.inferenceResult.findUnique({
       where: { deviceId: device_id },
@@ -153,7 +153,7 @@ router.get("/results/:device_id", async (req: Request, res: Response) => {
  */
 router.get("/evse/:evse_id", async (req: Request, res: Response) => {
   try {
-    const { evse_id } = req.params;
+    const evse_id = Array.isArray(req.params.evse_id) ? req.params.evse_id[0] : req.params.evse_id;
     const { limit = 50, offset = 0 } = req.query;
 
     const results = await prisma.inferenceResult.findMany({
@@ -229,7 +229,7 @@ router.get("/stats", async (req: Request, res: Response) => {
  */
 router.delete("/results/:device_id", async (req: Request, res: Response) => {
   try {
-    const { device_id } = req.params;
+    const device_id = Array.isArray(req.params.device_id) ? req.params.device_id[0] : req.params.device_id;
 
     const result = await prisma.inferenceResult.delete({
       where: { deviceId: device_id },

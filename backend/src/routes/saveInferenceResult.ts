@@ -94,7 +94,7 @@ router.post('/save-result', async (req: Request, res: Response) => {
  */
 router.get('/results/:evseId', async (req: Request, res: Response) => {
   try {
-    const { evseId } = req.params;
+    const evseId = Array.isArray(req.params.evseId) ? req.params.evseId[0] : req.params.evseId;
 
     const results = await prisma.inferenceResult.findMany({
       where: {
@@ -126,7 +126,7 @@ router.get('/results/:evseId', async (req: Request, res: Response) => {
  */
 router.get('/latest/:evseId', async (req: Request, res: Response) => {
   try {
-    const { evseId } = req.params;
+    const evseId = Array.isArray(req.params.evseId) ? req.params.evseId[0] : req.params.evseId;
 
     const result = await prisma.inferenceResult.findFirst({
       where: {

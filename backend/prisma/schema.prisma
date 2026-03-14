@@ -68,3 +68,24 @@ model Report {
 
   user      User     @relation(fields: [userId], references: [id])
 }
+
+model InferenceResult {
+  id                String   @id @default(cuid())
+  deviceId          String   @unique
+  evseId            String
+  connectorId       Int
+  status            String
+  anomalies         Json     // {"critical": 0, "high": 2, "medium": 0, "low": 10}
+  totalSamples      Int
+  totalAnomalies    Int
+  generatedAt       DateTime
+  dataPoints        Int
+  s3Url             String
+  s3Key             String
+  timing            Json     // {"inference_time_ms": 250, "total_time_ms": 1200}
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([evseId])
+  @@index([updatedAt])
+}

@@ -23,7 +23,7 @@
         },
         {
           "name": "S3_BUCKET",
-          "value": "battery-ml-results-070872471952"
+          "value": "battery-ml-results-test"
         },
         {
           "name": "S3_PREFIX",
@@ -36,6 +36,10 @@
         {
           "name": "API_BASE_URL",
           "value": "https://uat.cms.gaadin.live/commands/secure/api/v1/get/charger/time_lapsed"
+        },
+        {
+          "name": "BACKEND_API_URL",
+          "value": "http://zeflash-backend:3001"
         }
       ],
       "logConfiguration": {
