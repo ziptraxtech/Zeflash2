@@ -831,7 +831,7 @@ def run_inference_pipeline(device_id: str, api_url: Optional[str] = None,
     print("[SUCCESS] INFERENCE PIPELINE COMPLETE")
     print("=" * 70)
     print(f"\nResults:")
-    print(json.dumps(result, indent=2, default=str))
+    print(json.dumps(result, default=str))  # Single line JSON for easy parsing
     print(f"\n[IMAGE] Image URL: {s3_url}")
     
     return result

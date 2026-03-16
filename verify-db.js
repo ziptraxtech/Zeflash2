@@ -1,7 +1,15 @@
 // Simple script to verify database tables
 const { Pool } = require('pg');
 
-const connectionString = "postgresql://neondb_owner:npg_FUbyO8xnPc7V@ep-old-river-aiawku58-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
+// Use DATABASE_URL from environment or .env file
+// This file is for local testing only - do not commit to GitHub
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  console.error('ERROR: DATABASE_URL environment variable not set');
+  console.error('Add DATABASE_URL to your .env file or set it as an environment variable');
+  process.exit(1);
+}
 
 const pool = new Pool({
   connectionString,

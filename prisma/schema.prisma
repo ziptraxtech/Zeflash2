@@ -72,7 +72,7 @@ model Report {
 model InferenceResult {
   id                String   @id @default(cuid())
   deviceId          String   @unique
-  evseId            String   @index
+  evseId            String
   connectorId       Int
   status            String
   anomalies         Json     // {"critical": 0, "high": 2, "medium": 0, "low": 10}

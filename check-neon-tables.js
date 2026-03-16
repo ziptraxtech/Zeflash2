@@ -1,9 +1,16 @@
 #!/usr/bin/env node
 // Verify Neon DB tables using Node.js
+// DO NOT COMMIT THIS FILE - It's for local testing only
 const https = require('https');
 
-// Neon connection string
-const connStr = "postgresql://neondb_owner:npg_FUbyO8xnPc7V@ep-old-river-aiawku58-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
+// Get connection string from environment or .env file
+const connStr = process.env.DATABASE_URL;
+
+if (!connStr) {
+  console.error('ERROR: DATABASE_URL environment variable not set');
+  console.error('Add DATABASE_URL to your .env file or set it as an environment variable');
+  process.exit(1);
+}
 
 // Parse connection string
 const url = new URL(connStr.replace('postgresql://', 'https://'));

@@ -125,14 +125,14 @@ def save_inference_result_to_db(result: Dict) -> bool:
         print(f"[DB] Response body: {response.text[:300]}")
         
         if response.status_code in [200, 201]:
-            print(f"[OK] ✅ Inference result saved to database for {payload['device_id']}")
+            print(f"[OK] Inference result saved to database for {payload['device_id']}")
             return True
         else:
-            print(f"[WARN] ❌ Failed to save to database: {response.status_code} - {response.text}")
+            print(f"[WARN] Failed to save to database: {response.status_code} - {response.text}")
             return False
     
     except Exception as e:
-        print(f"[WARN] ❌ Error saving to database: {e}")
+        print(f"[WARN] Error saving to database: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -211,21 +211,25 @@ async def run_ml_inference_task(job_id: str, evse_id: str, connector_id: int, li
             import json
             result = None
             print(f"[Job {job_id}] Parsing inference result from stdout...")
-            print(f"[Job {job_id}] STDOUT content (last 500 chars): {stdout_str[-500:]}")
             
-            for line in reversed(stdout_str.split('\n')):
+            # Look for a single-line JSON output from inference_pipeline.py
+            for line in stdout_str.split('\n'):
+                line = line.strip()
+                if not line.startswith('{'):
+                    continue
+                    
                 try:
-                    if line.strip().startswith('{'):
-                        result = json.loads(line)
-                        print(f"[Job {job_id}] ✅ Successfully parsed JSON result: {list(result.keys())}")
+                    result = json.loads(line)
+                    # Verify this is the result object with expected fields
+                    if 'anomalies' in result and 's3_url' in result:
+                        print(f"[Job {job_id}] [OK] Successfully parsed result: {list(result.keys())}")
                         break
                 except json.JSONDecodeError as e:
-                    print(f"[Job {job_id}] JSON parse error on line: {e}")
-                    continue
+                    print(f"[Job {job_id}] JSON parse error: {e}")
             
             if result is None:
-                print(f"[Job {job_id}] ⚠️  WARNING: Could not parse inference result from stdout!")
-                print(f"[Job {job_id}] This means the inference_pipeline.py did not output JSON")
+                print(f"[Job {job_id}] WARNING: Could not parse inference result from stdout!")
+                print(f"[Job {job_id}] Last 500 chars of stdout: {stdout_str[-500:]}")
             
             jobs[job_id].result = {
                 "device_id": device_id,
@@ -239,7 +243,7 @@ async def run_ml_inference_task(job_id: str, evse_id: str, connector_id: int, li
             
             # Save to database (non-blocking via threading)
             if result:
-                print(f"[Job {job_id}] 📤 Preparing database save payload...")
+                print(f"[Job {job_id}] [INFO] Preparing database save payload...")
                 response_data = {
                     "device_id": device_id,
                     "evse_id": evse_id,
@@ -265,9 +269,9 @@ async def run_ml_inference_task(job_id: str, evse_id: str, connector_id: int, li
                     daemon=True
                 )
                 db_thread.start()
-                print(f"[Job {job_id}] ✅ Database save triggered in background thread")
+                print(f"[Job {job_id}] [OK] Database save triggered in background thread")
             else:
-                print(f"[Job {job_id}] ⚠️  Skipping database save - result is None")
+                print(f"[Job {job_id}] [WARNING] Skipping database save - result is None")
         else:
             # Extract the actual error from stdout (where our script prints errors)
             error_lines = []
