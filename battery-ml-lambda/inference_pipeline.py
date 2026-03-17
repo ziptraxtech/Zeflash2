@@ -57,15 +57,10 @@ ISOFOREST_PATH = os.path.join(MODEL_DIR, "isolation_forest.pkl")
 CONFIG_PATH = os.path.join(MODEL_DIR, "config.json")
 FEATURE_NAMES_PATH = os.path.join(MODEL_DIR, "feature_names.json")
 
-# S3 Configuration
+# S3 Configuration - Reports ALWAYS upload to S3 in production
 S3_BUCKET = os.environ.get("S3_BUCKET", "battery-ml-results-test")
 S3_PREFIX = os.environ.get("S3_PREFIX", "battery-reports/")
-
-# Local Testing Mode - set LOCAL_REPORTS_DIR env var to save locally instead of S3
-LOCAL_REPORTS_DIR = os.environ.get("LOCAL_REPORTS_DIR", None)  # e.g., "./reports"
-if LOCAL_REPORTS_DIR:
-    print(f"[INFO] LOCAL TESTING MODE: Saving reports to {LOCAL_REPORTS_DIR}")
-    os.makedirs(LOCAL_REPORTS_DIR, exist_ok=True)
+print(f"[INFO] S3 Configuration: Bucket={S3_BUCKET}, Prefix={S3_PREFIX}")
 
 # ============ LOAD MODELS ============
 print("Loading models...")
@@ -628,26 +623,11 @@ def generate_visualization(result: Dict, device_id: str) -> io.BytesIO:
 
 
 def upload_to_s3(buf: io.BytesIO, device_id: str, result: Dict) -> Tuple[str, str]:
-    """Upload visualization to S3 (or save locally for testing) and return key and URL."""
-    # Use fixed filename instead of timestamp so frontend can always find it
+    """Upload visualization to S3 and return key and URL."""
+    # Use fixed filename so frontend can always find it
     filename = "battery_health_report.png"
     
-    # If LOCAL_REPORTS_DIR is set, save locally instead of S3
-    if LOCAL_REPORTS_DIR:
-        device_dir = os.path.join(LOCAL_REPORTS_DIR, device_id)
-        os.makedirs(device_dir, exist_ok=True)
-        filepath = os.path.join(device_dir, filename)
-        
-        with open(filepath, 'wb') as f:
-            f.write(buf.getvalue())
-        
-        # Return local HTTP URL for localhost server
-        local_url = f"http://localhost:8000/api/v1/reports/{device_id}/{filename}"
-        print(f"[LOCAL] Saved to: {filepath}")
-        print(f"[LOCAL] Accessible at: {local_url}")
-        return filepath, local_url
-    
-    # Otherwise upload to S3
+    # Upload to S3 (production standard)
     key = f"{S3_PREFIX.rstrip('/')}/{device_id}/{filename}"
 
     print(f"Uploading to S3: {key}")

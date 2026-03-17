@@ -25,9 +25,8 @@ load_dotenv()
 
 # ============ Configuration ============
 TOKEN_ENDPOINT = os.environ.get("TOKEN_ENDPOINT", "https://cms.charjkaro.in/admin/api/v1/zipbolt/token")
-API_BASE_URL = os.environ.get("API_BASE_URL", "https://uat.cms.gaadin.live/commands/secure/api/v1/get/charger/time_lapsed")
-LOCAL_REPORTS_DIR = os.environ.get("LOCAL_REPORTS_DIR", None)
-BACKEND_API_URL = os.environ.get("BACKEND_API_URL", "http://localhost:3001")  # Backend URL for saving results
+API_BASE_URL = os.environ.get("API_BASE_URL", "https://cms.charjkaro.in/commands/secure/api/v1/get/charger/time_lapsed")
+BACKEND_API_URL = os.environ.get("BACKEND_API_URL", "http://zipbolt-backend-service:3001")  # Backend URL for saving results in Neon DB
 
 # ============ FastAPI App ============
 app = FastAPI(
