@@ -36,12 +36,14 @@ Report displayed to user
 Make sure your environment variable is set:
 
 ```bash
-VITE_RAZORPAY_KEY_ID=rzp_live_4QS6rb1lpyfBXF
+VITE_RAZORPAY_KEY_ID=rzp_live_[your_key_here]
 ```
 
 ### Location to add (if not already present):
 - `.env.local` file in project root
 - Or configure in your CI/CD pipeline
+
+**Note**: Get your Razorpay Key ID from Razorpay Dashboard → Settings → API Keys
 
 ## Code Structure
 

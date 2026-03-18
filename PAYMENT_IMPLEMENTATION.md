@@ -66,9 +66,10 @@ Added a payment wall of ₹99 between S3 image creation and AI report generation
 2. `/src/components/ChargingStations.tsx` - Updated with payment integration
 
 ## Prerequisites
-- Ensure `VITE_RAZORPAY_KEY_ID=rzp_live_4QS6rb1lpyfBXF` is set in environment
+- Ensure `VITE_RAZORPAY_KEY_ID=rzp_live_[your_key_here]` is set in environment
 - Razorpay script is loaded via existing `loadRazorpayScript()` utility
 - Clerk authentication already in place for user sign-in requirement
+- **Get key from**: Razorpay Dashboard → Settings → API Keys
 
 ## Testing
 1. Navigate to charging stations
