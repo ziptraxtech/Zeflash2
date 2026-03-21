@@ -9,6 +9,17 @@ import jsPDF from 'jspdf';
 import { useAuth, useUser, SignInButton } from '@clerk/clerk-react';
 import { useAIReportPayment } from '../hooks/useAIReportPayment';
 import CreditsWallet from './CreditsWallet';
+import { MapContainer } from 'react-leaflet/MapContainer';
+import { TileLayer } from 'react-leaflet/TileLayer';
+import { Marker } from 'react-leaflet/Marker';
+import { CircleMarker } from 'react-leaflet/CircleMarker';
+import { Popup } from 'react-leaflet/Popup';
+import { useMap } from 'react-leaflet/hooks';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import {
   ResponsiveContainer,
   BarChart,
@@ -57,6 +68,50 @@ type Station = {
   evses: Evse[];
 };
 
+const StationsMapController: React.FC<{
+  points: Array<{ latitude: number; longitude: number }>;
+  topNearestPoints: Array<{ latitude: number; longitude: number }>;
+  focusNearestVersion: number;
+  userLocation: { latitude: number; longitude: number } | null;
+}> = ({ points, topNearestPoints, focusNearestVersion, userLocation }) => {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!userLocation) {
+      map.setView([28.6139, 77.2090], 11);
+      return;
+    }
+
+    if (!points.length) return;
+
+    if (points.length === 1) {
+      map.setView([points[0].latitude, points[0].longitude], 13);
+      return;
+    }
+
+    const bounds = points.map((point): [number, number] => [point.latitude, point.longitude]);
+    map.fitBounds(bounds, { padding: [32, 32] });
+  }, [map, points, userLocation]);
+
+  useEffect(() => {
+    if (!topNearestPoints.length) return;
+    const nearest = topNearestPoints[0];
+    map.setView([nearest.latitude, nearest.longitude], 14);
+  }, [map, topNearestPoints, focusNearestVersion]);
+
+  return null;
+};
+
+const defaultPinIcon = L.icon({
+  iconRetinaUrl: markerIcon2x,
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
 type PreviousTest = {
   id: string;
   evseId: string;
@@ -100,6 +155,7 @@ const ChargingStations: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<'All' | 'Online' | 'Offline'>('All');
   const [stations, setStations] = useState<Station[]>([]);
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [focusNearestVersion, setFocusNearestVersion] = useState(0);
   const [tempCouponInput, setTempCouponInput] = useState('');
   const couponModalRef = useRef<HTMLInputElement>(null);
   const [couponModalState, setCouponModalState] = useState<{ open: boolean; evseId: string }>({
@@ -627,6 +683,45 @@ const ChargingStations: React.FC = () => {
     return filtered;
   }, [searchTerm, filterStatus, stations, userLocation]);
 
+  const mapStations = useMemo(
+    () =>
+      filteredStations.filter(
+        (station) =>
+          Number.isFinite(station.latitude) &&
+          Number.isFinite(station.longitude) &&
+          station.latitude >= -90 &&
+          station.latitude <= 90 &&
+          station.longitude >= -180 &&
+          station.longitude <= 180 &&
+          !(station.latitude === 0 && station.longitude === 0)
+      ),
+    [filteredStations]
+  );
+
+  const mapCenter = useMemo<[number, number]>(() => {
+    if (mapStations.length) {
+      return [mapStations[0].latitude, mapStations[0].longitude];
+    }
+    return [28.6139, 77.2090];
+  }, [mapStations]);
+
+  const topNearestStations = useMemo(() => {
+    if (!userLocation) return [] as Station[];
+
+    return filteredStations
+      .filter(
+        (station) =>
+          Number.isFinite(station.latitude) &&
+          Number.isFinite(station.longitude) &&
+          station.latitude >= -90 &&
+          station.latitude <= 90 &&
+          station.longitude >= -180 &&
+          station.longitude <= 180 &&
+          !(station.latitude === 0 && station.longitude === 0)
+      )
+      .slice(0, 3);
+  }, [filteredStations, userLocation]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50">
       {/* Header */}
@@ -776,6 +871,84 @@ const ChargingStations: React.FC = () => {
         {/* Stations Grid */}
         {filteredStations.length > 0 ? (
           <>
+            <div className="mb-8 rounded-2xl border border-blue-200 bg-white shadow-lg overflow-hidden">
+              <div className="px-5 py-4 border-b border-blue-100 bg-blue-50/60">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">Charging Stations Map</h3>
+                    <p className="text-sm text-gray-600">All visible station locations plotted from their latitude/longitude coordinates.</p>
+                  </div>
+                  {userLocation && topNearestStations.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setFocusNearestVersion((prev) => prev + 1)}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-blue-300 bg-white px-3 py-2 text-xs font-semibold text-blue-700 hover:bg-blue-50"
+                    >
+                      <MapPin className="w-3.5 h-3.5" />
+                      Zoom to Nearest
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+              <div className="h-[320px] w-full">
+                {mapStations.length > 0 ? (
+                  <MapContainer center={mapCenter} zoom={11} scrollWheelZoom className="h-full w-full">
+                    <TileLayer
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    />
+                    <StationsMapController
+                      points={mapStations.map((station) => ({ latitude: station.latitude, longitude: station.longitude }))}
+                      topNearestPoints={topNearestStations.map((station) => ({ latitude: station.latitude, longitude: station.longitude }))}
+                      focusNearestVersion={focusNearestVersion}
+                      userLocation={userLocation}
+                    />
+
+                    {userLocation ? (
+                      <CircleMarker
+                        center={[userLocation.latitude, userLocation.longitude]}
+                        radius={10}
+                      >
+                        <Popup>
+                          <div className="min-w-[140px]">
+                            <p className="font-semibold text-gray-900">Your Location</p>
+                          </div>
+                        </Popup>
+                      </CircleMarker>
+                    ) : null}
+
+                    {mapStations.map((station) => (
+                      <Marker
+                        key={`station-map-${station.id}`}
+                        position={[station.latitude, station.longitude]}
+                        icon={defaultPinIcon}
+                      >
+                        <Popup>
+                          <div className="min-w-[170px]">
+                            <p className="font-semibold text-gray-900">{station.name}</p>
+                            <p className="text-xs text-gray-600 mt-1">{station.city}{station.city && station.state ? ', ' : ''}{station.state}</p>
+                            <a
+                              href={`https://www.google.com/maps/search/?api=1&query=${station.latitude},${station.longitude}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-blue-700"
+                            >
+                              <MapPin className="w-3.5 h-3.5" />
+                              Open in Google Maps
+                            </a>
+                          </div>
+                        </Popup>
+                      </Marker>
+                    ))}
+                  </MapContainer>
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center text-sm text-gray-500">
+                    No valid station coordinates available to display on the map.
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
               {filteredStations.map((station, index) => {
                 const stationOnline = isStationOnline(station.name);

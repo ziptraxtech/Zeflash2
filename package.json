@@ -22,6 +22,7 @@
     "dotenv": "^17.3.1",
     "html2canvas": "^1.4.1",
     "jspdf": "^2.5.1",
+    "leaflet": "^1.9.4",
     "lucide-react": "^0.303.0",
     "node-fetch": "^2.7.0",
     "papaparse": "^5.4.1",
@@ -30,10 +31,12 @@
     "razorpay": "^2.9.6",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-leaflet": "^4.2.1",
     "react-router-dom": "^6.8.1",
     "recharts": "^2.10.3"
   },
   "devDependencies": {
+    "@types/leaflet": "^1.9.21",
     "@types/node": "^25.0.8",
     "@types/papaparse": "^5.5.2",
     "@types/react": "^18.2.43",
