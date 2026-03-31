@@ -156,6 +156,7 @@ const ChargingStations: React.FC = () => {
   const [stations, setStations] = useState<Station[]>([]);
   const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [focusNearestVersion, setFocusNearestVersion] = useState(0);
+  const [showCouponBanner, setShowCouponBanner] = useState<boolean>(false);
   const [tempCouponInput, setTempCouponInput] = useState('');
   const couponModalRef = useRef<HTMLInputElement>(null);
   const [couponModalState, setCouponModalState] = useState<{ open: boolean; evseId: string }>({
@@ -181,6 +182,11 @@ const ChargingStations: React.FC = () => {
   });
   const reportContentRef = useRef<HTMLDivElement>(null);
   const aiImageContainerRef = useRef<HTMLDivElement>(null);
+
+  // Show coupon banner on every page load (dismissible per view only)
+  useEffect(() => {
+    setShowCouponBanner(true);
+  }, []);
 
   const TOKEN_ENDPOINT = 'https://cms.charjkaro.in/admin/api/v1/zipbolt/token';
   const API_BASE_URL = 'https://cms.charjkaro.in/commands/secure/api/v1/get/charger/time_lapsed';
@@ -226,13 +232,13 @@ const ChargingStations: React.FC = () => {
   const getCouponInfo = (code: string): { valid: boolean; amount: number; discount: number } => {
     const upperCode = code.toUpperCase();
     if (upperCode === 'ZEFLASHCODERS') {
-      return { valid: true, amount: 0, discount: 99 }; // Free for testing
+      return { valid: true, amount: 0, discount: 299 }; // Free for testing
     } else if (upperCode === 'TESTCHARJ') {
-      return { valid: true, amount: 59, discount: 40 }; // ₹59 (₹40 off)
+      return { valid: true, amount: 149, discount: 150 }; // ₹149 (50% off)
     } else if (upperCode === 'ZIPTRAX') {
-      return { valid: true, amount: 1, discount: 98 }; // ₹1 (₹98 off)
+      return { valid: true, amount: 1, discount: 298 }; // ₹1 (₹298 off)
     }
-    return { valid: false, amount: 99, discount: 0 }; // Default price
+    return { valid: false, amount: 299, discount: 0 }; // Default price
   };
 
   // Handle coupon modal submission
@@ -724,6 +730,53 @@ const ChargingStations: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50">
+      {/* Coupon Promo Modal */}
+      {showCouponBanner && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div className="relative w-full max-w-md rounded-2xl bg-gradient-to-b from-purple-600 via-pink-500 to-orange-500 text-white shadow-2xl border border-white/20 px-5 py-5 sm:px-6 sm:py-6">
+            {/* Close button */}
+            <button
+              type="button"
+              aria-label="Close coupon offer popup"
+              className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-black/30 hover:bg-black/40 border border-white/20 flex items-center justify-center text-lg font-bold"
+              onClick={() => setShowCouponBanner(false)}
+            >
+              ×
+            </button>
+
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-white/20 text-yellow-200 text-2xl font-bold">
+                ⚡
+              </div>
+              <div className="flex-1 text-sm sm:text-base">
+                <div className="font-semibold leading-snug text-white">
+                  Limited-time coupons on AI Reports at Charging Stations!
+                </div>
+                <div className="text-xs sm:text-sm text-pink-50/90 mt-1">
+                  Use the coupon <span className="font-semibold">TESTCHARJ</span> (50% off) during checkout to unlock special pricing.
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-3">
+              <button
+                type="button"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-white text-purple-700 text-xs sm:text-sm font-semibold px-4 py-2 shadow-md hover:bg-purple-50 transition-colors flex-1"
+                onClick={() => setShowCouponBanner(false)}
+              >
+                Try with Coupon
+              </button>
+              <button
+                type="button"
+                className="inline-flex items-center justify-center gap-1 rounded-full border border-white/40 text-white text-xs sm:text-sm font-semibold px-4 py-2 hover:bg-white/10 transition-colors flex-none sm:flex-0"
+                onClick={() => setShowCouponBanner(false)}
+              >
+                Maybe later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-blue-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-8">
@@ -890,7 +943,7 @@ const ChargingStations: React.FC = () => {
                   ) : null}
                 </div>
               </div>
-              <div className="h-[320px] w-full">
+              <div className="h-[320px] w-full relative z-0">
                 {mapStations.length > 0 ? (
                   <MapContainer center={mapCenter} zoom={11} scrollWheelZoom className="h-full w-full">
                     <TileLayer
@@ -1498,7 +1551,7 @@ const ChargingStations: React.FC = () => {
                       </p>
                       <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 bg-orange-100 border border-orange-300 rounded-lg">
                         <Zap className="w-4 h-4 text-orange-600" />
-                        <span className="text-xs font-semibold text-orange-700">₹99 - Premium AI Report</span>
+                        <span className="text-xs font-semibold text-orange-700">₹299 - Premium AI Report</span>
                       </div>
                     </div>
 
@@ -1905,7 +1958,7 @@ const ChargingStations: React.FC = () => {
                     <>
                       <div className="flex justify-between items-center">
                         <span className="text-gray-600">Original Price:</span>
-                        <span className="text-gray-500 line-through">₹99</span>
+                        <span className="text-gray-500 line-through">₹299</span>
                       </div>
                       {(() => {
                         const info = getCouponInfo(tempCouponInput);
@@ -1920,7 +1973,7 @@ const ChargingStations: React.FC = () => {
                   ) : (
                     <div className="flex justify-between items-center font-bold text-lg">
                       <span className="text-gray-900">Price:</span>
-                      <span className="text-purple-600">₹99</span>
+                      <span className="text-purple-600">₹299</span>
                     </div>
                   )}
                 </div>
