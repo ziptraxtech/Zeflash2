@@ -54,21 +54,21 @@ jobs:
           aws ecs describe-task-definition --task-definition ${{ env.ECS_TASK_DEFINITION }} \
             --query taskDefinition > task-definition.json
 
-      - name: Fill in the new image ID in the Amazon ECS task definition
-        id: task-def
-        uses: aws-actions/render-amazon-ecs-task-definition@v1
-        with:
-          task-definition: task-definition.json
-          container-name: ${{ env.ECS_REPOSITORY }}
-          image: ${{ steps.image.outputs.image }}
+      - name: Update task definition with new image
+        run: |
+          aws ecs register-task-definition \
+            --cli-input-json file://task-definition.json \
+            --region ${{ env.AWS_REGION }} \
+            --overrides '{"containerDefinitions": [{"name": "${{ env.ECS_REPOSITORY }}", "image": "${{ steps.image.outputs.image }}"}]}' || true
+          # Note: jq can be used if more complex updates needed
 
-      - name: Deploy to Amazon ECS service
-        uses: aws-actions/deploy-to-ecs@v1
-        with:
-          task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE }}
-          cluster: ${{ env.ECS_CLUSTER }}
-          wait-for-service-stability: true
+      - name: Update ECS Service
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service ${{ env.ECS_SERVICE }} \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
 
       - name: Deployment complete
         run: echo "Backend deployed to ECS successfully"

@@ -1,0 +1,136 @@
+{
+    "taskDefinitionArn":  "arn:aws:ecs:us-east-1:070872471952:task-definition/battery-ml-task-test:20",
+    "containerDefinitions":  [
+                                 {
+                                     "name":  "battery-backend-container",
+                                     "image":  "070872471952.dkr.ecr.us-east-1.amazonaws.com/battery-ml:no-db",
+                                     "cpu":  0,
+                                     "portMappings":  [
+                                                          {
+                                                              "containerPort":  3000,
+                                                              "hostPort":  3000,
+                                                              "protocol":  "tcp"
+                                                          }
+                                                      ],
+                                     "essential":  true,
+                                     "environment":  [
+                                                         {
+                                                             "name":  "S3_BUCKET",
+                                                             "value":  "battery-ml-results-test"
+                                                         },
+                                                         {
+                                                             "name":  "NODE_ENV",
+                                                             "value":  "production"
+                                                         },
+                                                         {
+                                                             "name":  "AWS_REGION",
+                                                             "value":  "us-east-1"
+                                                         },
+                                                         {
+                                                             "name":  "ML_BACKEND_URL",
+                                                             "value":  "http://localhost:8000"
+                                                         },
+                                                         {
+                                                             "name":  "PORT",
+                                                             "value":  "3000"
+                                                         }
+                                                     ],
+                                     "mountPoints":  [
+
+                                                     ],
+                                     "volumesFrom":  [
+
+                                                     ],
+                                     "secrets":  [
+                                                     {
+                                                         "name":  "CLERK_SECRET_KEY",
+                                                         "valueFrom":  "arn:aws:secretsmanager:us-east-1:070872471952:secret:battery-ml/clerk-keys-XXXXX:CLERK_SECRET_KEY::"
+                                                     },
+                                                     {
+                                                         "name":  "RAZORPAY_KEY_ID",
+                                                         "valueFrom":  "arn:aws:secretsmanager:us-east-1:070872471952:secret:battery-ml/razorpay-keys-XXXXX:RAZORPAY_KEY_ID::"
+                                                     },
+                                                     {
+                                                         "name":  "RAZORPAY_KEY_SECRET",
+                                                         "valueFrom":  "arn:aws:secretsmanager:us-east-1:070872471952:secret:battery-ml/razorpay-keys-XXXXX:RAZORPAY_KEY_SECRET::"
+                                                     }
+                                                 ],
+                                     "logConfiguration":  {
+                                                              "logDriver":  "awslogs",
+                                                              "options":  {
+                                                                              "awslogs-group":  "/ecs/battery-backend",
+                                                                              "awslogs-region":  "us-east-1",
+                                                                              "awslogs-stream-prefix":  "ecs"
+                                                                          }
+                                                          },
+                                     "healthCheck":  {
+                                                         "command":  [
+                                                                         "CMD-SHELL",
+                                                                         "curl -f http://localhost:3000/health || exit 1"
+                                                                     ],
+                                                         "interval":  30,
+                                                         "timeout":  10,
+                                                         "retries":  3,
+                                                         "startPeriod":  60
+                                                     },
+                                     "systemControls":  [
+
+                                                        ]
+                                 }
+                             ],
+    "family":  "battery-ml-task-test",
+    "executionRoleArn":  "arn:aws:iam::070872471952:role/ecsTaskExecutionRole",
+    "networkMode":  "awsvpc",
+    "revision":  20,
+    "volumes":  [
+
+                ],
+    "status":  "ACTIVE",
+    "requiresAttributes":  [
+                               {
+                                   "name":  "com.amazonaws.ecs.capability.logging-driver.awslogs"
+                               },
+                               {
+                                   "name":  "ecs.capability.execution-role-awslogs"
+                               },
+                               {
+                                   "name":  "com.amazonaws.ecs.capability.ecr-auth"
+                               },
+                               {
+                                   "name":  "com.amazonaws.ecs.capability.docker-remote-api.1.19"
+                               },
+                               {
+                                   "name":  "ecs.capability.secrets.asm.environment-variables"
+                               },
+                               {
+                                   "name":  "ecs.capability.container-health-check"
+                               },
+                               {
+                                   "name":  "ecs.capability.execution-role-ecr-pull"
+                               },
+                               {
+                                   "name":  "com.amazonaws.ecs.capability.docker-remote-api.1.18"
+                               },
+                               {
+                                   "name":  "ecs.capability.task-eni"
+                               },
+                               {
+                                   "name":  "com.amazonaws.ecs.capability.docker-remote-api.1.29"
+                               }
+                           ],
+    "placementConstraints":  [
+
+                             ],
+    "compatibilities":  [
+                            "EC2",
+                            "FARGATE",
+                            "MANAGED_INSTANCES"
+                        ],
+    "requiresCompatibilities":  [
+                                    "FARGATE"
+                                ],
+    "cpu":  "1024",
+    "memory":  "2048",
+    "registeredAt":  "2026-04-13T18:40:38.832000+05:30",
+    "registeredBy":  "arn:aws:iam::070872471952:root"
+}

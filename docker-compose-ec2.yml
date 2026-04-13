@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  zeflash-backend:
+    image: 070872471952.dkr.ecr.us-east-1.amazonaws.com/battery-ml:ec2-backend
+    container_name: zeflash-backend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - ML_BACKEND_URL=http://localhost:8000
+      - S3_BUCKET=battery-ml-results-test
+      - AWS_REGION=us-east-1
+      - VITE_API_BASE=https://zeflash.vercel.app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: awslogs
+      options:
+        awslogs-group: /ec2/zeflash-backend
+        awslogs-region: us-east-1
+        awslogs-stream-prefix: docker
+
+volumes:
+  backend-data:

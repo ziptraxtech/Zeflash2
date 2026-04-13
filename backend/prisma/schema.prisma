@@ -63,6 +63,9 @@ model Report {
   connector Int
   status    String   @default("processing")
   s3Url     String?
+  anomalies Json?    // {"critical": 0, "high": 2, "medium": 0, "low": 10}
+  totalSamples Int?
+  totalAnomalies Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

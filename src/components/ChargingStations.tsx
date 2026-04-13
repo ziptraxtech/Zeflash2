@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { API_URL } from '../config/api';
 import { Search, MapPin, ArrowLeft, BarChart3, Zap, CheckCircle, Users, X, Activity, Thermometer, RefreshCw, Download } from 'lucide-react';
 import Papa from 'papaparse';
-import * as mlService from '../services/mlService';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { useAuth, useUser, SignInButton } from '@clerk/clerk-react';
@@ -122,16 +121,41 @@ type PreviousTest = {
 };
 
 const getDefaultAiImageUrl = (evseId: string, connector: number) =>
-  `https://battery-ml-results-test.s3.us-east-1.amazonaws.com/battery-reports/${evseId}_${connector}/battery_health_report.png`;
+  `http://localhost:3001/api/reports/${evseId}_${connector}/battery_health_report.png`;
 
 const resolveAiImageUrl = (rawUrl: string | null | undefined, evseId: string, connector: number) => {
   const fallback = getDefaultAiImageUrl(evseId, connector);
   if (!rawUrl) return fallback;
 
+  // Handle relative paths (e.g., "battery-reports/{device_id}/battery_health_report.png")
+  if (!rawUrl.startsWith('http://') && !rawUrl.startsWith('https://')) {
+    // Relative path - convert to localhost URL
+    const path = rawUrl.startsWith('/') ? rawUrl : `/${rawUrl}`;
+    
+    // If it's a battery-reports path, serve from localhost api endpoint
+    if (rawUrl.includes('battery-reports')) {
+      const deviceId = rawUrl.split('battery-reports/')[1]?.split('/')[0];
+      if (deviceId) {
+        return `http://localhost:3001/api/reports/${deviceId}/battery_health_report.png`;
+      }
+    }
+    
+    return `http://localhost:3001${path}`;
+  }
+
   try {
     const parsed = new URL(rawUrl);
     const host = parsed.host;
     const cleanPath = parsed.pathname;
+
+    // Force localhost for all reports
+    if (cleanPath.includes('battery-reports') || cleanPath.includes('battery_health_report')) {
+      // Extract device ID and rebuild with localhost
+      const match = cleanPath.match(/(?:battery-reports|reports)\/([^/]+)/);
+      if (match && match[1]) {
+        return `http://localhost:3001/api/reports/${match[1]}/battery_health_report.png`;
+      }
+    }
 
     if (cleanPath.endsWith('.png')) {
       return `${parsed.origin}${cleanPath}`;
@@ -159,7 +183,7 @@ const ChargingStations: React.FC = () => {
   const [showCouponBanner, setShowCouponBanner] = useState<boolean>(false);
   const [tempCouponInput, setTempCouponInput] = useState('');
   const couponModalRef = useRef<HTMLInputElement>(null);
-  const [couponModalState, setCouponModalState] = useState<{ open: boolean; evseId: string }>({
+  const [couponModalState, setCouponModalState] = useState<{ open: boolean; evseId: string; stationName?: string }>({
     open: false,
     evseId: ''
   });
@@ -167,7 +191,27 @@ const ChargingStations: React.FC = () => {
   const [creditsLoading, setCreditsLoading] = useState<boolean>(false);
   const [previousTests, setPreviousTests] = useState<PreviousTest[]>([]);
   const [historyLoading, setHistoryLoading] = useState<boolean>(false);
-  const [reportModal, setReportModal] = useState<{ open: boolean; evseId: string; connectorId: number; data: any; loading: boolean; error: string; aiImageUrl?: string; aiLoading?: boolean; aiError?: string; paymentPending?: boolean; paymentError?: string }>({
+  const [reportModal, setReportModal] = useState<{ 
+    open: boolean; 
+    evseId: string; 
+    connectorId: number; 
+    stationName?: string; 
+    data: any; 
+    loading: boolean; 
+    error: string; 
+    aiImageUrl?: string; 
+    aiLoading?: boolean; 
+    aiError?: string; 
+    paymentPending?: boolean; 
+    paymentError?: string;
+    recommendations?: string[];
+    aiReportData?: {
+      totalSamples: number;
+      totalAnomalies: number;
+      anomalies: any;
+      status: string;
+    };
+  }>({
     open: false,
     evseId: '',
     connectorId: 1,
@@ -178,7 +222,9 @@ const ChargingStations: React.FC = () => {
     aiLoading: false,
     aiError: '',
     paymentPending: false,
-    paymentError: ''
+    paymentError: '',
+    recommendations: [],
+    aiReportData: undefined
   });
   const reportContentRef = useRef<HTMLDivElement>(null);
   const aiImageContainerRef = useRef<HTMLDivElement>(null);
@@ -188,12 +234,19 @@ const ChargingStations: React.FC = () => {
     setShowCouponBanner(true);
   }, []);
 
+  // Debug logging for recommendations
+  useEffect(() => {
+    console.log('[useEffect] reportModal.recommendations changed:', reportModal.recommendations);
+    console.log('[useEffect] recommendations length:', reportModal.recommendations?.length);
+    console.log('[useEffect] recommendations type:', typeof reportModal.recommendations);
+  }, [reportModal.recommendations]);
+
   const TOKEN_ENDPOINT = 'https://cms.charjkaro.in/admin/api/v1/zipbolt/token';
   const API_BASE_URL = 'https://cms.charjkaro.in/commands/secure/api/v1/get/charger/time_lapsed';
 
-  const fetchChargerReport = async (evseId: string, connectorId: number, silent: boolean = false) => {
+  const fetchChargerReport = async (evseId: string, connectorId: number, stationName?: string, silent: boolean = false) => {
     if (!silent) {
-      setReportModal(prev => ({ ...prev, open: true, evseId, connectorId, data: null, loading: true, error: '' }));
+      setReportModal(prev => ({ ...prev, open: true, evseId, connectorId, stationName, data: null, loading: true, error: '' }));
     } else {
       setReportModal(prev => ({ ...prev, loading: true, error: '' }));
     }
@@ -207,7 +260,7 @@ const ChargingStations: React.FC = () => {
       const token = tokenData.token;
 
       // Then, use the token to fetch charger report
-      const url = `${API_BASE_URL}?role=Admin&operator=All&evse_id=${evseId}&connector_id=${connectorId}&page=1&limit=20`;
+      const url = `${API_BASE_URL}?role=Admin&operator=All&evse_id=${evseId}&connector_id=${connectorId}&page=1&limit=100`;
       
       const response = await fetch(url, {
         method: 'GET',
@@ -256,21 +309,23 @@ const ChargingStations: React.FC = () => {
 
     const evseId = couponModalState.evseId;
     const deviceId = `${evseId}_${reportModal.connectorId || 1}`;
+    const stationName = reportModal.stationName;  // Get station name from reportModal, not couponModalState
 
     if (couponInfo.amount === 0) {
       // Free coupon - skip payment
       setReportModal((prev) => ({ ...prev, aiLoading: true, aiError: '', aiImageUrl: '' }));
-      proceedWithAIReport(evseId, deviceId);
+      proceedWithAIReport(evseId, deviceId, tempCouponInput.toUpperCase(), stationName);
     } else {
       // Paid coupon or regular - proceed with payment
       setReportModal((prev) => ({ ...prev, paymentPending: true, paymentError: '', aiError: '', aiImageUrl: '' }));
-      proceedWithPayment(evseId, deviceId, couponInfo.amount, tempCouponInput.toUpperCase());
+      proceedWithPayment(evseId, deviceId, couponInfo.amount, tempCouponInput.toUpperCase(), stationName);
     }
   };
 
   const handleUseCredits = async () => {
     const evseId = couponModalState.evseId;
     const connectorId = reportModal.connectorId || 1;
+    const stationName = reportModal.stationName;
     setCouponModalState({ open: false, evseId: '' });
     setTempCouponInput('');
     setReportModal((prev) => ({
@@ -292,7 +347,7 @@ const ChargingStations: React.FC = () => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ evse_id: evseId, connector_id: connectorId }),
+        body: JSON.stringify({ evse_id: evseId, connector_id: connectorId, station_name: stationName }),
       });
 
       const responseText = await response.text();
@@ -324,7 +379,7 @@ const ChargingStations: React.FC = () => {
   };
 
   // Proceed with payment
-  const proceedWithPayment = async (evseId: string, deviceId: string, amount: number, coupon: string) => {
+  const proceedWithPayment = async (evseId: string, deviceId: string, amount: number, coupon: string, stationName?: string) => {
     try {
       const paymentSucceeded = await initiatePayment(deviceId, amount, coupon);
 
@@ -334,7 +389,7 @@ const ChargingStations: React.FC = () => {
       }
 
       setReportModal((prev) => ({ ...prev, paymentPending: false, aiLoading: true, aiError: '', aiImageUrl: '' }));
-      proceedWithAIReport(evseId, deviceId);
+      proceedWithAIReport(evseId, deviceId, undefined, stationName);
     } catch (error) {
       console.error('Payment error:', error);
       setReportModal((prev) => ({
@@ -346,40 +401,54 @@ const ChargingStations: React.FC = () => {
   };
 
   // Proceed with AI report generation
-  const proceedWithAIReport = async (evseId: string, deviceId: string) => {
+  const proceedWithAIReport = async (evseId: string, _deviceId: string, couponCode?: string, stationName?: string) => {
     try {
       const connectorId = reportModal.connectorId || 1;
+      const token = await getToken();
       
-      // Use S3 for production and testing (images are uploaded there)
-      // Add timestamp to force fresh data and bypass browser caching
-      const imageUrl = `https://battery-ml-results-test.s3.us-east-1.amazonaws.com/battery-reports/${deviceId}/battery_health_report.png?t=${Date.now()}`;
-
-      // Always trigger fresh ML inference to get latest analysis
-      // (do not use cached images - user wants up-to-date report)
-      console.log('Triggering fresh ML inference for:', deviceId);
-      const result = await mlService.runInference(
-        {
-          evse_id: evseId,
-          connector_id: connectorId,
-          limit: 100
-        },
-        (status) => {
-          console.log(`ML Progress: ${status.progress}% - ${status.message}`);
-        }
-      );
-
-      if (result.status === 'completed') {
-        setReportModal((prev) => ({
-          ...prev,
-          aiImageUrl: imageUrl,
-          aiLoading: false,
-          aiError: ''
-        }));
-      } else if (result.status === 'failed') {
-        throw new Error(result.message || 'ML inference failed');
-      } else {
-        throw new Error('ML inference did not complete successfully');
+      if (!token) {
+        throw new Error('Please sign in to generate reports');
       }
+      
+      // Call backend /generate-report endpoint which handles everything (inference + ML metrics)
+      const response = await fetch(`${API_URL}/generate-report`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ evse_id: evseId, connector_id: connectorId, coupon_code: couponCode, station_name: stationName }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || `Generation failed: ${response.status}`);
+      }
+
+      const reportData = await response.json();
+      console.log('[proceedWithAIReport] Response data:', reportData);
+      console.log('[proceedWithAIReport] Recommendations raw:', reportData.recommendations);
+      console.log('[proceedWithAIReport] Recommendations type:', typeof reportData.recommendations);
+      console.log('[proceedWithAIReport] Recommendations length:', reportData.recommendations?.length);
+      
+      // Update modal with image URL, recommendations, and AI report metrics
+      const recsToSet = reportData.recommendations || [];
+      console.log('[proceedWithAIReport] Setting recommendations:', recsToSet);
+      
+      setReportModal((prev) => ({
+        ...prev,
+        aiImageUrl: reportData.s3Url,
+        aiLoading: false,
+        aiError: '',
+        recommendations: recsToSet,
+        // Store AI report metrics for PDF generation
+        aiReportData: {
+          totalSamples: reportData.totalSamples,
+          totalAnomalies: reportData.totalAnomalies,
+          anomalies: reportData.anomalies,
+          status: reportData.status
+        }
+      }));
     } catch (error) {
       console.error('AI Health Report Error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to generate AI health report';
@@ -388,7 +457,7 @@ const ChargingStations: React.FC = () => {
         setReportModal((prev) => ({
           ...prev,
           aiLoading: false,
-          aiError: 'Cannot reach ML backend server. Please ensure backend is running on http://localhost:8000'
+          aiError: 'Cannot reach backend server. Please try again.'
         }));
       } else {
         setReportModal((prev) => ({
@@ -401,8 +470,8 @@ const ChargingStations: React.FC = () => {
   };
 
   // New simplified fetchAIHealthReport - just opens coupon modal
-  const fetchAIHealthReport = async (evseId: string) => {
-    setCouponModalState({ open: true, evseId });
+  const fetchAIHealthReport = async (evseId: string, stationName?: string) => {
+    setCouponModalState({ open: true, evseId, stationName });
     setTempCouponInput('');
   };
 
@@ -422,7 +491,7 @@ const ChargingStations: React.FC = () => {
       paymentPending: false,
       paymentError: ''
     }));
-    await fetchChargerReport(test.evseId, test.connector, true);
+    await fetchChargerReport(test.evseId, test.connector, undefined, true);
     console.log('Opened previous test in station preview:', deviceId);
   };
 
@@ -1135,7 +1204,7 @@ const ChargingStations: React.FC = () => {
                                 </div>
                                 <button
                                   type="button"
-                                  onClick={() => fetchChargerReport(e.evseId, connector)}
+                                  onClick={() => fetchChargerReport(e.evseId, connector, station.name)}
                                   className="inline-flex items-center justify-center gap-1 px-2 py-1.5 rounded-md text-[10px] font-semibold border border-blue-300 text-blue-700 bg-white hover:bg-blue-50"
                                   aria-label={`View report for connector ${connector}`}
                                 >
@@ -1214,7 +1283,7 @@ const ChargingStations: React.FC = () => {
             <div className="flex items-center justify-between border-b border-blue-100 p-6 sticky top-0 bg-white z-10">
               <div className="flex-1">
                 <h2 className="text-2xl font-bold text-gray-900">ZEFLASH RAPID AI Battery Report</h2>
-                <p className="text-sm text-gray-600 mt-1">EVSE ID: {reportModal.evseId} • Connector: {reportModal.connectorId}</p>
+                <p className="text-sm text-gray-600 mt-1">{reportModal.stationName && `${reportModal.stationName} • `}EVSE ID: {reportModal.evseId} • Connector: {reportModal.connectorId}</p>
               </div>
               <div className="flex items-center gap-3">
                 {/* Download button with visuals */}
@@ -1256,7 +1325,10 @@ const ChargingStations: React.FC = () => {
                         pdf.setFontSize(12);
                         pdf.text('Charger Report', margin, 7);
                         pdf.setFontSize(9);
-                        pdf.text(`EVSE ID: ${reportModal.evseId} | Connector: ${reportModal.connectorId}`, margin, 11.5);
+                        const headerSubtitle = reportModal.stationName 
+                          ? `${reportModal.stationName} • EVSE ID: ${reportModal.evseId} | Connector: ${reportModal.connectorId}`
+                          : `EVSE ID: ${reportModal.evseId} | Connector: ${reportModal.connectorId}`;
+                        pdf.text(headerSubtitle, margin, 11.5);
                         pdf.text(`Date: ${new Date().toISOString().slice(0, 10)}`, margin, 14);
                         // Divider under header
                         pdf.setDrawColor(colors.divider[0], colors.divider[1], colors.divider[2]);
@@ -1385,6 +1457,173 @@ const ChargingStations: React.FC = () => {
                         }
                       }
 
+                      // Add Detailed Analysis Section based on anomalies
+                      if (reportModal.recommendations && reportModal.recommendations.length > 0) {
+                        currentPosition += 4;
+                        
+                        // Calculate anomaly percentage for detailed analysis using AI report data
+                        const totalAnomalies = reportModal.aiReportData?.totalAnomalies || 0;
+                        const totalSamples = reportModal.aiReportData?.totalSamples || 1;
+                        const anomalyPercentage = (totalAnomalies / totalSamples) * 100;
+                        
+                        console.log('[PDF] Anomaly data:', { totalAnomalies, totalSamples, anomalyPercentage });
+
+                        // Detailed Analysis Header
+                        pdf.setTextColor(colors.sectionTitle[0], colors.sectionTitle[1], colors.sectionTitle[2]);
+                        pdf.setFontSize(12);
+                        pdf.text('Detailed Analysis & Recommendations', margin, currentPosition);
+                        currentPosition += 4;
+
+                        // Analysis based on percentage
+                        let analysisText = '';
+                        let statusColor = [0, 0, 0];
+                        
+                        if (anomalyPercentage >= 50) {
+                          analysisText = `CRITICAL STATUS (${anomalyPercentage.toFixed(1)}% anomalies detected)\n\n` +
+                            'Your battery system is showing severe anomalies that pose a critical risk. Immediate action is required.\n\n' +
+                            'Risk Level: EXTREME - Battery degradation is advanced and may lead to system failure.';
+                          statusColor = [220, 20, 60]; // Crimson red
+                        } else if (anomalyPercentage >= 25) {
+                          analysisText = `HIGH RISK STATUS (${anomalyPercentage.toFixed(1)}% anomalies detected)\n\n` +
+                            'Significant abnormalities have been detected in your battery performance.\n\n' +
+                            'Risk Level: HIGH - Recommend scheduling a diagnostic check soon to prevent further degradation.';
+                          statusColor = [255, 140, 0]; // Orange
+                        } else if (anomalyPercentage >= 15) {
+                          analysisText = `CAUTION STATUS (${anomalyPercentage.toFixed(1)}% anomalies detected)\n\n` +
+                            '• Early signs of degradation or inconsistency detected.\n' +
+                            '• Slight drop in performance and beginning of uneven cell behavior.\n' +
+                            '• Not critical yet, but trending negatively.\n' +
+                            '• Regular monitoring is essential.';
+                          statusColor = [30, 105, 210]; // Deep blue
+                        } else if (anomalyPercentage >= 5) {
+                          analysisText = `GOOD STATUS (${anomalyPercentage.toFixed(1)}% anomalies detected)\n\n` +
+                            'Minor anomalies detected but within acceptable parameters.\n\n' +
+                            'Risk Level: LOW - Continue normal usage with periodic monitoring.';
+                          statusColor = [144, 238, 144]; // Light green
+                        } else {
+                          analysisText = `NORMAL STATUS (${anomalyPercentage.toFixed(1)}% anomalies detected)\n\n` +
+                            'Your battery is operating in optimal condition with no material anomalies.\n\n' +
+                            'Risk Level: MINIMAL - Maintain current usage habits and enjoy maximum efficiency.';
+                          statusColor = [76, 175, 80]; // Green
+                        }
+
+                        // Analysis box
+                        const analysisCardX = margin;
+                        let analysisCardYStart = currentPosition;
+                        pdf.setDrawColor(statusColor[0], statusColor[1], statusColor[2]);
+                        pdf.setLineWidth(1.5);
+                        pdf.setFillColor(219, 234, 254); // Light blue background
+                        
+                        pdf.setTextColor(statusColor[0], statusColor[1], statusColor[2]); // Use status color for text
+                        pdf.setFontSize(11);
+                        const analysisLines = pdf.splitTextToSize(analysisText, contentWidth - (2 * 4));
+                        let analysisHeight = 4 + (analysisLines.length * 4) + 4;
+                        
+                        if (currentPosition + analysisHeight > pageHeight - margin) {
+                          currentPosition = newPage();
+                          analysisCardYStart = currentPosition;
+                        }
+                        
+                        pdf.roundedRect(analysisCardX, analysisCardYStart, contentWidth, analysisHeight, 3, 3, 'FD');
+                        
+                        let analysisY = analysisCardYStart + 4;
+                        for (let i = 0; i < analysisLines.length; i++) {
+                          if (i === 0) {
+                            pdf.setFontSize(11);
+                            pdf.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
+                          } else {
+                            pdf.setFontSize(9);
+                            pdf.setTextColor(50, 50, 50); // Dark gray for body text
+                          }
+                          pdf.text(analysisLines[i], margin + 4, analysisY);
+                          analysisY += 4;
+                        }
+                        
+                        currentPosition = analysisCardYStart + analysisHeight + 4;
+
+                        // Recommended Actions Section
+                        // Check if we need a new page
+                        if (currentPosition + 30 > pageHeight - margin) {
+                          currentPosition = newPage();
+                        }
+
+                        // Recommendations header
+                        pdf.setTextColor(colors.sectionTitle[0], colors.sectionTitle[1], colors.sectionTitle[2]);
+                        pdf.setFontSize(12);
+                        pdf.text('Recommended Actions', margin, currentPosition);
+                        currentPosition += 5;
+
+                        // Extract just the English text from recommendations (remove Hindi in brackets)
+                        let cleanedRecs = (reportModal.recommendations || []).map(rec => {
+                          // Remove text in brackets [...]
+                          return rec.replace(/\s*\[.*?\]/g, '').trim();
+                        });
+                        
+                        // Remove first two points (Early signs and Slight drop)
+                        cleanedRecs = cleanedRecs.filter(rec => 
+                          !rec.startsWith('Early signs') && !rec.startsWith('Slight drop')
+                        );
+                        
+                        // Add Zeflash and EVChamp recommendations
+                        cleanedRecs.push('EV users can utilize Zeflash\'s annual plans for regularly checking their EV\'s.');
+                        cleanedRecs.push('Go to EVChamp\'s service centers for Full Health Analysis of the EV & Battery issues fixing.');
+
+                        // Calculate box height
+                        const recCardX = margin;
+                        const recCardPadding = 3;
+                        let recBoxHeight = recCardPadding;
+                        const maxRecWidth = contentWidth - (2 * recCardPadding) - 8;
+                        
+                        for (const rec of cleanedRecs) {
+                          const lines = pdf.splitTextToSize(`• ${rec}`, maxRecWidth);
+                          recBoxHeight += (lines.length * 4) + 3;
+                        }
+                        recBoxHeight += recCardPadding;
+
+                        // Check if we need new page
+                        if (currentPosition + recBoxHeight > pageHeight - margin) {
+                          currentPosition = newPage();
+                        }
+
+                        // Draw recommendations card
+                        const recCardYStart = currentPosition;
+                        pdf.setDrawColor(30, 105, 210); // Deep blue border for recommendations
+                        pdf.setLineWidth(0.5);
+                        pdf.setFillColor(219, 234, 254); // Light blue background
+                        pdf.roundedRect(recCardX, recCardYStart, contentWidth, recBoxHeight, 2, 2, 'FD');
+                        
+                        // Add text with bullet points - highlighted
+                        pdf.setTextColor(0, 0, 0); // Black text for better visibility
+                        pdf.setFontSize(10);
+                        let yPos = recCardYStart + recCardPadding + 4;
+                        
+                        for (const rec of cleanedRecs) {
+                          const lines = pdf.splitTextToSize(`• ${rec}`, maxRecWidth);
+                          
+                          // Add subtle highlight behind each bullet point
+                          const bulletHeight = (lines.length * 4) + 2;
+                          pdf.setFillColor(219, 234, 254); // Light blue highlight (matching box background)
+                          pdf.rect(margin + 1, yPos - 3, contentWidth - 2, bulletHeight, 'F');
+                          
+                          pdf.setTextColor(33, 33, 33); // Dark gray
+                          
+                          for (const line of lines) {
+                            if (yPos > pageHeight - margin - 5) {
+                              currentPosition = newPage();
+                              yPos = margin + 5;
+                              pdf.setDrawColor(30, 105, 210); // Deep blue for nested items
+                              pdf.setFillColor(219, 234, 254); // Light blue for nested items
+                              pdf.roundedRect(recCardX, yPos - 3, contentWidth, recBoxHeight, 2, 2, 'FD');
+                            }
+                            pdf.text(line, margin + recCardPadding + 3, yPos);
+                            yPos += 4;
+                          }
+                          yPos += 1; // Space between bullet points
+                        }
+                        
+                        currentPosition = recCardYStart + recBoxHeight + 4;
+                      }
+
                       // Add page break before metrics with styled header
                       currentPosition = newPage();
                       pdf.setTextColor(colors.sectionTitle[0], colors.sectionTitle[1], colors.sectionTitle[2]);
@@ -1492,7 +1731,7 @@ const ChargingStations: React.FC = () => {
                 
                 {/* Manual refresh button */}
                 <button
-                  onClick={() => fetchChargerReport(reportModal.evseId, reportModal.connectorId, true)}
+                  onClick={() => fetchChargerReport(reportModal.evseId, reportModal.connectorId, undefined, true)}
                   disabled={reportModal.loading}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
                   title="Refresh now"
@@ -1572,7 +1811,7 @@ const ChargingStations: React.FC = () => {
                       </SignInButton>
                     ) : (
                       <button
-                        onClick={() => fetchAIHealthReport(reportModal.evseId)}
+                        onClick={() => fetchAIHealthReport(reportModal.evseId, reportModal.stationName)}
                         disabled={reportModal.aiLoading || reportModal.paymentPending}
                         className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-gray-400 disabled:to-gray-400 text-white font-semibold rounded-lg transition-all duration-300 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
                       >
@@ -1669,6 +1908,49 @@ const ChargingStations: React.FC = () => {
                       <p className="text-gray-500 text-center">AI analysis not yet generated. Generate AI report to see detailed analysis.</p>
                     )}
                   </div>
+
+                  {/* Recommended Actions Section - Always Visible */}
+                  <div className="bg-gradient-to-r from-blue-50 via-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-6 shadow-md">
+                    <div className="flex items-center gap-2 mb-4">
+                      <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zm-11-1a1 1 0 11-2 0 1 1 0 012 0z" clipRule="evenodd" />
+                      </svg>
+                      <h3 className="text-lg font-bold text-blue-900">Recommended Actions</h3>
+                    </div>
+                    
+                    {reportModal.recommendations && reportModal.recommendations.length > 0 ? (
+                      <div className="bg-white border border-blue-300 rounded-lg p-5 space-y-4">
+                        <div className="border-b pb-3">
+                          <p className="font-semibold text-gray-900 mb-2">What We Found</p>
+                          <p className="text-sm text-gray-700">{reportModal.recommendations[0]}</p>
+                        </div>
+                        
+                        <div className="border-b pb-3">
+                          <p className="font-semibold text-gray-900 mb-2">What This Means</p>
+                          <p className="text-sm text-gray-700">{reportModal.recommendations[1]}</p>
+                        </div>
+                        
+                        <div>
+                          <p className="font-semibold text-gray-900 mb-2">What You Should Do</p>
+                          <p className="text-sm text-gray-700 whitespace-pre-line">{reportModal.recommendations[2]}</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-white border border-dashed border-blue-300 rounded-md p-4">
+                        <p className="text-sm text-gray-600 text-center">
+                          {reportModal.aiLoading ? (
+                            <span className="flex items-center justify-center gap-2">
+                              <span className="inline-block animate-spin">⏳</span>
+                              Analyzing battery and generating recommendations...
+                            </span>
+                          ) : (
+                            'Recommendations will appear here after AI analysis completes'
+                          )}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
                   {reportModal.data.data && reportModal.data.data.length > 0 ? (
                     <div ref={reportContentRef} className="space-y-6">
                       {/* Parse data for visualizations */}
@@ -1688,6 +1970,7 @@ const ChargingStations: React.FC = () => {
                           let current = 0;
                           let energy = 0;
                           let temperature = 0;
+                          let foundMeasurands = new Set<string>();
                           
                           if (item.payload && Array.isArray(item.payload)) {
                             for (const p of item.payload) {
@@ -1706,6 +1989,8 @@ const ChargingStations: React.FC = () => {
                                             if (item.Key === 'value') value = item.Value;
                                           }
                                           
+                                          foundMeasurands.add(measurand);
+                                          
                                           if (measurand === 'Voltage') voltage = parseFloat(value) || 0;
                                           else if (measurand === 'Power.Active.Import') power = parseFloat(value) || 0;
                                           else if (measurand === 'Current.Import') current = parseFloat(value) || 0;
@@ -1718,6 +2003,17 @@ const ChargingStations: React.FC = () => {
                                 }
                               }
                             }
+                          }
+                          
+                          // Debug: Log first item's measurands
+                          if (parsedData.length === 0) {
+                            console.log('[DEBUG] Available measurands in API response:', Array.from(foundMeasurands));
+                            console.log('[DEBUG] Energy value:', energy, 'Power value:', power, 'Voltage:', voltage, 'Current:', current);
+                          }
+                          
+                          // Fallback: Calculate power from voltage × current if power is 0 or missing
+                          if ((power === 0 || !power) && voltage > 0 && current > 0) {
+                            power = (voltage * current);  // Result in Watts
                           }
                           
                           parsedData.push({
@@ -1734,16 +2030,80 @@ const ChargingStations: React.FC = () => {
                         const avgCurrent = parsedData.reduce((sum, d) => sum + d.current, 0) / parsedData.length;
                         const avgTemperature = parsedData.reduce((sum, d) => sum + d.temperature, 0) / parsedData.length;
                         const maxCurrent = Math.max(...parsedData.map(d => d.current));
-                        const totalEnergy = parsedData[parsedData.length - 1]?.energy - parsedData[0]?.energy;
+                        
+                        // Debug: Log power values
+                        const powerValues = parsedData.map(d => d.power);
+                        const avgPower = powerValues.reduce((sum, p) => sum + p, 0) / powerValues.length;
+                        const minPower = Math.min(...powerValues);
+                        const maxPower = Math.max(...powerValues);
+                        console.log('[DEBUG] Power values in data:', {
+                          count: powerValues.length,
+                          min: minPower,
+                          max: maxPower,
+                          avg: avgPower,
+                          first: powerValues[0],
+                          last: powerValues[powerValues.length - 1],
+                          allValues: powerValues.slice(0, 10) // First 10 values
+                        });
+                        
+                        // Calculate total energy
+                        let totalEnergy = Math.abs((parsedData[parsedData.length - 1]?.energy || 0) - (parsedData[0]?.energy || 0));
+                        
+                        // Fallback: If energy is 0 or unrealistically high, but power data is available, estimate from power
+                        if ((totalEnergy === 0 || totalEnergy > 500) && parsedData.some(d => d.power > 0)) {
+                          // Calculate based on average power × actual time span
+                          const avgPowerW = parsedData.reduce((sum, d) => sum + d.power, 0) / parsedData.length;
+                          
+                          // Parse timestamps to calculate actual time span (HH:MM format)
+                          let estimatedTimeSpanHours = 0;
+                          if (parsedData.length > 1) {
+                            const firstTime = parsedData[0]?.timestamp || "00:00";
+                            const lastTime = parsedData[parsedData.length - 1]?.timestamp || "00:00";
+                            
+                            // Parse HH:MM format
+                            const [firstHour, firstMin] = firstTime.split(':').map(Number);
+                            const [lastHour, lastMin] = lastTime.split(':').map(Number);
+                            
+                            const firstTotalMin = firstHour * 60 + firstMin;
+                            const lastTotalMin = lastHour * 60 + lastMin;
+                            
+                            // Calculate minutes difference
+                            let minutesDiff = lastTotalMin - firstTotalMin;
+                            if (minutesDiff < 0) minutesDiff += 24 * 60; // Handle day wrap-around
+                            
+                            estimatedTimeSpanHours = minutesDiff / 60;
+                            if (estimatedTimeSpanHours === 0) estimatedTimeSpanHours = (parsedData.length - 1) / 60; // Fallback
+                          } else {
+                            estimatedTimeSpanHours = 0.017; // ~1 minute default
+                          }
+                          
+                          totalEnergy = (avgPowerW / 1000) * estimatedTimeSpanHours; // Convert W to kW, multiply by hours
+                          console.log('[DEBUG] Energy estimated from power:', totalEnergy.toFixed(3), 'kWh, avg power:', avgPowerW.toFixed(0), 'W, time span:', estimatedTimeSpanHours.toFixed(2), 'hours');
+                        } else if (totalEnergy > 0) {
+                          console.log('[DEBUG] Energy from API:', totalEnergy, 'kWh');
+                        } else {
+                          console.log('[DEBUG] No energy data available, totalEnergy:', totalEnergy);
+                        }
                         
                         // Energy for bar chart (convert to kWh)
-                        const energyData = parsedData.slice(-8).map((d) => ({
-                          name: d.timestamp,
-                          energy: (d.energy / 1000).toFixed(2)
-                        }));
+                        const energyData = parsedData.slice(-8).map((d) => {
+                          // Calculate incremental energy for each point
+                          let pointEnergy = 0;
+                          if (d.energy > 0) {
+                            // If direct energy is available
+                            pointEnergy = d.energy / 1000000;
+                          } else if (d.power > 0) {
+                            // Fallback: estimate from power (assuming 1-minute interval)
+                            pointEnergy = (d.power / 1000) * (1 / 60);
+                          }
+                          return {
+                            name: d.timestamp,
+                            energy: pointEnergy.toFixed(2)
+                          };
+                        });
                         
-                        // Power trend data
-                        const powerData = parsedData.map(d => ({
+                        // Power trend data - display last 20 readings for clarity
+                        const powerData = parsedData.slice(-20).map(d => ({
                           time: d.timestamp,
                           power: parseFloat((d.power / 1000).toFixed(2)),
                           voltage: parseFloat(d.voltage.toFixed(1))
@@ -1813,7 +2173,7 @@ const ChargingStations: React.FC = () => {
                             <div className="bg-white rounded-xl p-4 md:p-6 border border-gray-200 shadow-sm">
                               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 md:mb-4 gap-2">
                                 <h3 className="text-xs md:text-sm font-semibold text-gray-600">Power & Voltage Trends</h3>
-                                <span className="text-[10px] md:text-xs bg-gray-100 px-2 py-1 rounded w-fit">Last {parsedData.length} readings</span>
+                                <span className="text-[10px] md:text-xs bg-gray-100 px-2 py-1 rounded w-fit">Last {Math.min(20, parsedData.length)} readings</span>
                               </div>
                               <ResponsiveContainer width="100%" height={180}>
                                 <LineChart data={powerData}>
@@ -1854,7 +2214,7 @@ const ChargingStations: React.FC = () => {
                                   <BarChart3 className="text-purple-600" size={16} />
                                   <span className="text-[9px] md:text-xs font-medium text-purple-600 bg-purple-200 px-1.5 md:px-2 py-0.5 md:py-1 rounded-full">Energy</span>
                                 </div>
-                                <p className="text-lg md:text-2xl font-bold text-purple-900">{(totalEnergy / 1000).toFixed(2)}kWh</p>
+                                <p className="text-lg md:text-2xl font-bold text-purple-900">{totalEnergy.toFixed(2)}kWh</p>
                                 <p className="text-[10px] md:text-xs text-purple-700">Total Consumed</p>
                               </div>
                               

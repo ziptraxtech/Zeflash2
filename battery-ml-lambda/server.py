@@ -49,6 +49,7 @@ class InferenceRequest(BaseModel):
     evse_id: str
     connector_id: int
     limit: int = 100
+    station_name: Optional[str] = None  # Optional station/location name
 
 class InferenceResponse(BaseModel):
     job_id: str
@@ -136,7 +137,7 @@ def save_inference_result_to_db(result: Dict) -> bool:
         traceback.print_exc()
         return False
 
-async def run_ml_inference_task(job_id: str, evse_id: str, connector_id: int, limit: int):
+async def run_ml_inference_task(job_id: str, evse_id: str, connector_id: int, limit: int, station_name: Optional[str] = None):
     """Background task to run ML inference"""
     try:
         # Update job status
@@ -162,7 +163,7 @@ async def run_ml_inference_task(job_id: str, evse_id: str, connector_id: int, li
         # Note: AWS credentials are automatically provided by IAM role in ECS
         # For local development, set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in .env
         
-        # Run inference_pipeline.py
+        # Run inference_pipeline.py with optional station name
         cmd = [
             sys.executable,  # Use current Python interpreter
             "inference_pipeline.py",
@@ -172,6 +173,10 @@ async def run_ml_inference_task(job_id: str, evse_id: str, connector_id: int, li
             "--auth-scheme", "Bearer",  # JWT token requires Bearer auth
             "--limit", str(limit)
         ]
+        
+        # Add station name if provided
+        if station_name:
+            cmd.extend(["--station-name", station_name])
         
         jobs[job_id].progress = 40
         jobs[job_id].message = "Executing ML models..."
@@ -229,16 +234,37 @@ async def run_ml_inference_task(job_id: str, evse_id: str, connector_id: int, li
             if result is None:
                 print(f"[Job {job_id}] WARNING: Could not parse inference result from stdout!")
                 print(f"[Job {job_id}] Last 500 chars of stdout: {stdout_str[-500:]}")
+                result = {}
             
+            # Extract path from result - use actual values from inference
+            s3_url = result.get("s3_url", "")
+            s3_key = result.get("s3_key", "")
+            
+            print(f"[Job {job_id}] Result contains:")
+            print(f"  - s3_url: {s3_url}")
+            print(f"  - s3_key: {s3_key}")
+            print(f"  - anomalies: {result.get('anomalies', {})}")
+            print(f"  - total_samples: {result.get('total_samples', 0)}")
+            print(f"  - total_anomalies: {result.get('total_anomalies', 0)}")
+            print(f"  - recommendations: {result.get('recommendations', [])}")
+            
+            # Use actual result from inference pipeline, or fallback to local path
             jobs[job_id].result = {
                 "device_id": device_id,
                 "evse_id": evse_id,
                 "connector_id": connector_id,
-                "s3_bucket": os.environ.get("S3_BUCKET", "battery-ml-results-test"),
-                "s3_path": f"battery-reports/{device_id}/",
+                "status": result.get("status", "unknown"),
+                "anomalies": result.get("anomalies", {}),
+                "total_samples": result.get("total_samples", 0),
+                "total_anomalies": result.get("total_anomalies", 0),
+                "anomaly_percentage": result.get("anomaly_percentage", 0),
+                "recommendations": result.get("recommendations", []),
+                "s3_path": s3_url or f"battery-reports/{device_id}/battery_health_report.png",
+                "s3_url": s3_url or f"battery-reports/{device_id}/battery_health_report.png",
                 "timestamp": datetime.now().isoformat(),
-                "stdout": stdout_str[:1000],  # First 1000 chars
             }
+            print(f"[Job {job_id}] Job result prepared: {list(jobs[job_id].result.keys())}")
+            print(f"[Job {job_id}] Final recommendations in response: {jobs[job_id].result.get('recommendations', [])}")
             
             # Save to database (non-blocking via threading)
             if result:
@@ -339,7 +365,8 @@ async def trigger_inference(request: InferenceRequest, background_tasks: Backgro
         job_id,
         request.evse_id,
         request.connector_id,
-        request.limit
+        request.limit,
+        request.station_name  # Pass optional station name
     )
     
     return InferenceResponse(

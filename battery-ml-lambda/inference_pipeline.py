@@ -1,5 +1,6 @@
+# -*- coding: utf-8 -*-
 """
-Inference Pipeline: Fetch live battery data → Run ML model → Save results to S3
+Inference Pipeline: Fetch live battery data → Run ML model → Generate and save reports locally
 
 This script:
 1. Fetches battery data from the active API (configured in config.json)
@@ -7,7 +8,7 @@ This script:
 3. Runs autoencoder + isolation forest inference
 4. Classifies anomalies and generates status
 5. Creates visualization chart
-6. Uploads results to S3
+6. Saves report locally to reports/{device_id}/ directory
 """
 
 import io
@@ -19,6 +20,12 @@ from typing import Optional, Tuple, Dict
 from urllib.request import Request, urlopen
 from urllib.error import URLError, HTTPError
 
+# Fix Windows console encoding for UTF-8 output
+import sys
+if sys.platform == 'win32':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+
 # Suppress TensorFlow warnings and info messages
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # 0=all, 1=no INFO, 2=no WARNING, 3=no INFO/WARNING/ERROR
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # Disable oneDNN custom ops to suppress warnings
@@ -28,7 +35,7 @@ warnings.filterwarnings('ignore', category=UserWarning)
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 warnings.filterwarnings('ignore', category=FutureWarning)
 
-import boto3
+# REMOVED: boto3 is no longer needed (local file storage only)
 import numpy as np
 import pandas as pd
 import joblib
@@ -51,16 +58,14 @@ from matplotlib.patches import Polygon
 
 # ============ CONFIG ============
 MODEL_DIR = "models"
-AUTOENCODER_PATH = os.path.join(MODEL_DIR, "autoencoder_final.h5")
+AUTOENCODER_PATH = os.path.join(MODEL_DIR, "ae_best.h5")  # New enhanced model trained on 1.8cr
 SCALER_PATH = os.path.join(MODEL_DIR, "scaler.pkl")
 ISOFOREST_PATH = os.path.join(MODEL_DIR, "isolation_forest.pkl")
 CONFIG_PATH = os.path.join(MODEL_DIR, "config.json")
 FEATURE_NAMES_PATH = os.path.join(MODEL_DIR, "feature_names.json")
 
-# S3 Configuration - Reports ALWAYS upload to S3 in production
-S3_BUCKET = os.environ.get("S3_BUCKET", "battery-ml-results-test")
-S3_PREFIX = os.environ.get("S3_PREFIX", "battery-reports/")
-print(f"[INFO] S3 Configuration: Bucket={S3_BUCKET}, Prefix={S3_PREFIX}")
+# LOCAL STORAGE CONFIGURATION - Reports saved to local filesystem only
+print("[INFO] Reports will be saved locally to: battery-ml-lambda/reports/{device_id}/")
 
 # ============ LOAD MODELS ============
 print("Loading models...")
@@ -138,8 +143,6 @@ ROLL_WIN = int(config.get("hyperparameters", {}).get("roll_win", 5))
 ae_threshold = float(config.get("autoencoder_threshold", 0.0))
 current_thr = config.get("current_thresholds", {})
 temp_thr = config.get("temperature_thresholds", {})
-
-s3_client = boto3.client("s3")
 
 print("[OK] Models loaded successfully\n")
 
@@ -453,7 +456,46 @@ def get_overall_status(counts: Dict) -> str:
     return "Stable"
 
 
-def generate_visualization(result: Dict, device_id: str) -> io.BytesIO:
+def get_recommendations(anomaly_percentage: float) -> list:
+    """Generate detailed recommendations based on anomaly percentage."""
+    if anomaly_percentage >= 50:
+        # DANGER
+        return [
+            "Severe battery anomaly detected. High likelihood of cell imbalance, degradation, or failure. [गंभीर बैटरी विसंगति का पता चला। सेल असंतुलन, गिरावट या विफलता की उच्च संभावना।]",
+            "Your battery system is showing severe anomalies that pose a critical risk. Immediate action is required to prevent potential failure or safety issues. [आपकी बैटरी सिस्टम गंभीर विसंगतियां दिखा रही है जो महत्वपूर्ण जोखिम पैदा करती हैं। संभावित विफलता या सुरक्षा समस्याओं को रोकने के लिए तुरंत कार्रवाई आवश्यक है।]",
+            "CRITICAL ACTIONS: Stop heavy usage immediately, Get battery pack inspected ASAP, Avoid fast charging [गंभीर कार्रवाई: तुरंत भारी उपयोग बंद करें, बैटरी पैक का तुरंत निरीक्षण करवाएं, तेज चार्जिंग से बचें]"
+        ]
+    elif anomaly_percentage >= 25:
+        # WARNING
+        return [
+            "Significant abnormal behavior detected in battery performance. [बैटरी के प्रदर्शन में महत्वपूर्ण असामान्य व्यवहार का पता चला।]",
+            "Noticeable efficiency loss and increasing internal imbalance. Reduced driving range and reduced performance. Schedule diagnostic check soon. [ध्यान देने योग्य दक्षता हानि और बढ़ता आंतरिक असंतुलन। ड्राइविंग रेंज में कमी और प्रदर्शन में कमी। जल्द ही निदान जांच शेड्यूल करें।]",
+            "RECOMMENDED ACTIONS: Schedule diagnostic check soon, Limit fast charging, Avoid extreme temperatures [अनुशंसित कार्रवाई: जल्द ही निदान जांच शेड्यूल करें, तेज चार्जिंग को सीमित करें, चरम तापमान से बचें]"
+        ]
+    elif anomaly_percentage >= 15:
+        # CAUTION
+        return [
+            "Early signs of degradation or inconsistency detected. [गिरावट या असंगति के प्रारंभिक संकेत का पता चला।]",
+            "Slight drop in performance and beginning of uneven cell behavior. Not critical yet, but trending negatively. Regular monitoring is essential. [प्रदर्शन में मामूली गिरावट और असमान सेल व्यवहार की शुरुआत। अभी तक गंभीर नहीं, लेकिन नकारात्मक प्रवृत्ति। नियमित निगरानी आवश्यक है।]",
+            "RECOMMENDED ACTIONS: Monitor regularly, Maintain charge between 20–80%, Reduce consecutive fast charging sessions [अनुशंसित कार्रवाई: नियमित निगरानी करें, चार्ज को 20-80% के बीच रखें, लगातार तेज चार्जिंग सत्र कम करें]"
+        ]
+    elif anomaly_percentage >= 5:
+        # SATISFACTORY
+        return [
+            "Minor anomalies detected but within acceptable limits. [मामूली विसंगतियां पाई गईं लेकिन स्वीकार्य सीमा के भीतर।]",
+            "Battery operating normally with minor variations. No immediate concern but periodic monitoring recommended. [बैटरी सामान्य रूप से मामूली विविधताओं के साथ काम कर रही है। कोई तुरंत चिंता नहीं लेकिन आवधिक निगरानी की अनुशंसा की जाती है।]",
+            "RECOMMENDED ACTIONS: Continue normal usage, Periodic monitoring recommended [अनुशंसित कार्रवाई: सामान्य उपयोग जारी रखें, आवधिक निगरानी की अनुशंसा की जाती है]"
+        ]
+    else:
+        # NORMAL
+        return [
+            "Battery is in optimal condition. [बैटरी इष्टतम स्थिति में है।]",
+            "Healthy cell balance and maximum efficiency. Your battery is performing excellently with no material anomalies detected. [स्वस्थ सेल संतुलन और अधिकतम दक्षता। आपकी बैटरी उत्कृष्ट प्रदर्शन कर रही है और कोई भौतिक विसंगति नहीं पाई गई है।]",
+            "RECOMMENDED ACTIONS: No action required, Maintain current usage habits [अनुशंसित कार्रवाई: कोई कार्रवाई आवश्यक नहीं है, वर्तमान उपयोग की आदतें बनाए रखें]"
+        ]
+
+
+def generate_visualization(result: Dict, device_id: str, station_name: Optional[str] = None) -> io.BytesIO:
     """Generate a full semicircle gauge chart with percentage-based zones (5 equal zones)."""
     from matplotlib.patches import Wedge, Circle
     
@@ -468,7 +510,7 @@ def generate_visualization(result: Dict, device_id: str) -> io.BytesIO:
     if anomaly_percentage >= 50:
         color = "#DC143C"  # Dark Red (matches zone)
         status = "DANGER ⚠"
-    elif anomaly_percentage >= 30:
+    elif anomaly_percentage >= 25:
         color = "#FF8C00"  # Orange (matches zone)
         status = "WARNING !"
     elif anomaly_percentage >= 15:
@@ -476,10 +518,10 @@ def generate_visualization(result: Dict, device_id: str) -> io.BytesIO:
         status = "CAUTION ▲"
     elif anomaly_percentage >= 5:
         color = "#90EE90"  # Light Green (matches zone)
-        status = "NORMAL"
+        status = "SATISFACTORY"
     else:
         color = "#4CAF50"  # Green (matches zone)
-        status = "SAFE ✔"
+        status = "NORMAL ✔"
     
     # Create figure
     fig, ax = plt.subplots(figsize=(6, 5), facecolor='white')
@@ -544,10 +586,11 @@ def generate_visualization(result: Dict, device_id: str) -> io.BytesIO:
     center_circle = Circle((0, 0), 0.07, color="black", zorder=5)
     ax.add_patch(center_circle)
     
-    # Device Name at top
+    # Station Name/Location at top
+    location_label = station_name if station_name else "Station Location"
     ax.text(
         0, 1.20,
-        device_id,
+        location_label,
         ha="center",
         fontsize=14,
         fontweight="bold"
@@ -600,6 +643,16 @@ def generate_visualization(result: Dict, device_id: str) -> io.BytesIO:
         color="gray"
     )
     
+    # EVSE ID at bottom
+    ax.text(
+        0, -0.65,
+        f"EVSE ID: {device_id}",
+        ha="center",
+        fontsize=9,
+        color="gray",
+        style="italic"
+    )
+    
     # Tick labels at zone boundaries (percentage values: 0%, 5%, 15%, 30%, 50%, 100%)
     tick_values = [0, 5, 15, 30, 50, 100]
     for val in tick_values:
@@ -623,60 +676,61 @@ def generate_visualization(result: Dict, device_id: str) -> io.BytesIO:
 
 
 def upload_to_s3(buf: io.BytesIO, device_id: str, result: Dict) -> Tuple[str, str]:
-    """Upload visualization to S3 and return key and URL."""
-    # Use fixed filename so frontend can always find it
-    filename = "battery_health_report.png"
+    """Save visualization locally. Returns relative path for local serving."""
+    # Save to local directory instead of S3
+    reports_dir = os.path.join(os.path.dirname(__file__), "reports", device_id)
     
-    # Upload to S3 (production standard)
-    key = f"{S3_PREFIX.rstrip('/')}/{device_id}/{filename}"
-
-    print(f"Uploading to S3: {key}")
+    print(f"[DEBUG] Creating reports directory: {reports_dir}")
+    print(f"[DEBUG] Directory exists before makedirs: {os.path.exists(reports_dir)}")
+    print(f"[DEBUG] Parent directory: {os.path.dirname(__file__)}")
     
     try:
-        # Upload with public-read ACL
-        s3_client.put_object(
-            Bucket=S3_BUCKET,
-            Key=key,
-            Body=buf.getvalue(),
-            ContentType="image/png",
-            ACL='public-read',  # Make object publicly readable
-            Metadata={
-                "status": result["status"],
-                "device_id": device_id,
-                "generated_at": datetime.now(timezone.utc).isoformat()
-            }
-        )
-        print(f"[OK] Uploaded to S3 (public-read)")
+        os.makedirs(reports_dir, exist_ok=True)
+        print(f"[DEBUG] Directory created/exists: {os.path.exists(reports_dir)}")
     except Exception as e:
-        print(f"[WARN] Could not set public-read ACL: {str(e)}")
-        print("Uploading without ACL...")
-        s3_client.put_object(
-            Bucket=S3_BUCKET,
-            Key=key,
-            Body=buf.getvalue(),
-            ContentType="image/png",
-            Metadata={
-                "status": result["status"],
-                "device_id": device_id,
-                "generated_at": datetime.now(timezone.utc).isoformat()
-            }
-        )
-
-    # Generate presigned URL with longer expiration (7 days)
-    url = s3_client.generate_presigned_url(
-        "get_object",
-        Params={"Bucket": S3_BUCKET, "Key": key},
-        ExpiresIn=604800,  # 7 days
-    )
+        print(f"[ERROR] Failed to create directory: {e}")
+        raise
     
-    # Also generate direct public URL
-    public_url = f"https://{S3_BUCKET}.s3.amazonaws.com/{key}"
-
-    print(f"[OK] Uploaded to S3: {key}")
-    print(f"  - Presigned URL (7 days): {url[:80]}...")
-    print(f"  - Public URL: {public_url}\n")
+    filename = "battery_health_report.png"
+    local_path = os.path.join(reports_dir, filename)
+    relative_path = f"battery-reports/{device_id}/{filename}"
     
-    return key, url
+    print(f"[DEBUG] Local file path: {local_path}")
+    print(f"[DEBUG] Buffer type: {type(buf)}")
+    print(f"[DEBUG] Buffer size before seek: {len(buf.getvalue())} bytes")
+    
+    try:
+        # Ensure buffer is at start position
+        buf.seek(0)
+        buffer_content = buf.getvalue()
+        print(f"[DEBUG] Buffer size after getvalue: {len(buffer_content)} bytes")
+        
+        if len(buffer_content) == 0:
+            print(f"[WARN] Buffer is empty!")
+        
+        # Write buffer content to file
+        print(f"[DEBUG] Opening file for writing...")
+        with open(local_path, "wb") as f:
+            bytes_written = f.write(buffer_content)
+            print(f"[DEBUG] Bytes written: {bytes_written}")
+        
+        # Verify file was created
+        if os.path.exists(local_path):
+            file_size = os.path.getsize(local_path)
+            print(f"[OK] Report saved locally: {local_path}")
+            print(f"   File size: {file_size} bytes")
+            print(f"   Serve URL: http://localhost:3001/api/reports/{device_id}/battery_health_report.png\n")
+        else:
+            print(f"[ERROR] File was not created: {local_path}")
+            raise FileNotFoundError(f"Failed to create file: {local_path}")
+        
+        # Return relative path for backend to construct URL
+        return relative_path, relative_path
+    except Exception as e:
+        print(f"[ERROR] Failed to save report locally: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 
 def build_cms_time_lapsed_url(evse_id: str, connector_id: int = 1, page: int = 1, limit: int = 100,
@@ -694,7 +748,8 @@ def build_cms_time_lapsed_url(evse_id: str, connector_id: int = 1, page: int = 1
 
 
 def run_inference_pipeline(device_id: str, api_url: Optional[str] = None, 
-                          auth_token: Optional[str] = None, limit: int = 100, auth_scheme: str = "Bearer") -> Dict:
+                          auth_token: Optional[str] = None, limit: int = 100, auth_scheme: str = "Bearer", 
+                          station_name: Optional[str] = None) -> Dict:
     """Main inference pipeline."""
     print("=" * 70)
     print(f"BATTERY ML INFERENCE PIPELINE - {device_id}")
@@ -781,6 +836,12 @@ def run_inference_pipeline(device_id: str, api_url: Optional[str] = None,
     
     # Calculate total anomalies for result dict
     total_anomalies = sum(counts.values())
+    
+    # Calculate anomaly percentage
+    anomaly_percentage = (total_anomalies / len(X_scaled) * 100) if len(X_scaled) > 0 else 0
+    
+    # Get recommendations based on anomaly percentage
+    recommendations = get_recommendations(anomaly_percentage)
 
     result = {
         "device_id": device_id,
@@ -788,6 +849,8 @@ def run_inference_pipeline(device_id: str, api_url: Optional[str] = None,
         "anomalies": counts,
         "total_samples": len(X_scaled),  # Number of samples analyzed
         "total_anomalies": total_anomalies,  # Sum of all anomaly counts
+        "anomaly_percentage": anomaly_percentage,  # Percentage for gauge
+        "recommendations": recommendations,  # Action items for user
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "data_points": len(items)
     }
@@ -800,17 +863,48 @@ def run_inference_pipeline(device_id: str, api_url: Optional[str] = None,
 
     # Step 7: Generate visualization
     print("Generating visualization...")
-    chart_buf = generate_visualization(result, device_id)
+    try:
+        chart_buf = generate_visualization(result, device_id, station_name)
+        print(f"[OK] Visualization generated, buffer size: {len(chart_buf.getvalue())} bytes")
+    except Exception as e:
+        print(f"[ERROR] Failed to generate visualization: {e}")
+        import traceback
+        traceback.print_exc()
+        # Create empty buffer as fallback
+        chart_buf = io.BytesIO()
+        print(f"[WARN] Using empty buffer as fallback")
 
-    # Step 8: Upload to S3
-    s3_key, s3_url = upload_to_s3(chart_buf, device_id, result)
+    # Step 8: Save report to local filesystem
+    print(f"\n[SAVE] Saving report to local disk...")
+    print(f"[SAVE] Device ID: {device_id}")
+    try:
+        s3_key, s3_url = upload_to_s3(chart_buf, device_id, result)
+    except Exception as e:
+        print(f"[ERROR] Failed to save report: {e}")
+        import traceback
+        traceback.print_exc()
+        s3_key = f"battery-reports/{device_id}/battery_health_report.png"
+        s3_url = f"battery-reports/{device_id}/battery_health_report.png"
+    
+    # FORCE localhost URL - never use S3 URLs
+    print(f"[SAVE] Upload returned: {s3_url}")
+    if s3_url and ('amazonaws' in s3_url or 'http' in s3_url):
+        print(f"[WARN] Detected S3/HTTP in result, forcing localhost path")
+        s3_url = f"battery-reports/{device_id}/battery_health_report.png"
+        s3_key = f"battery-reports/{device_id}/battery_health_report.png"
+    
     result["s3_key"] = s3_key
     result["s3_url"] = s3_url
+    
+    print(f"[SAVE] Final s3_url in result: {result['s3_url']}")
+    print(f"[SAVE] Report saved successfully\n")
 
     print("=" * 70)
     print("[SUCCESS] INFERENCE PIPELINE COMPLETE")
     print("=" * 70)
     print(f"\nResults:")
+    print(f"[RECOMMENDATIONS] {recommendations}")
+    print(f"[ANOMALY %] {anomaly_percentage:.1f}%")
     print(json.dumps(result, default=str))  # Single line JSON for easy parsing
     print(f"\n[IMAGE] Image URL: {s3_url}")
     
@@ -833,6 +927,7 @@ if __name__ == "__main__":
     parser.add_argument("--limit", type=int, default=100,
                        help="Number of latest documents to fetch (default: 100)")
     parser.add_argument("--bucket", help="Override S3 bucket")
+    parser.add_argument("--station-name", help="Optional station/location name to display in gauge")
     
     args = parser.parse_args()
     
@@ -864,6 +959,7 @@ if __name__ == "__main__":
             args.auth_token,
             args.limit,
             args.auth_scheme,
+            args.station_name,  # Pass station name if provided
         )
     except Exception as e:
         print(f"\n[ERROR] ERROR: {str(e)}")

@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '@clerk/clerk-react';
 import { API_URL } from '../config/api';
 import CreditsWallet from './CreditsWallet';
+import Papa from 'papaparse';
 import {
   ArrowLeft,
   Download,
@@ -54,6 +55,49 @@ const AIReport: React.FC = () => {
   const [generating, setGenerating] = useState(false);
   const [s3Url, setS3Url] = useState<string | null>(null);
   const [genError, setGenError] = useState<string | null>(null);
+  const [stationName, setStationName] = useState<string | null>(null);
+  const [mlData, setMlData] = useState<{
+    anomalies: { critical: number; high: number; medium: number; low: number };
+    totalSamples: number;
+    totalAnomalies: number;
+    generatedAt: string;
+    recommendations?: string[];
+  } | null>(null);
+
+  // Fetch station name from CSV based on evseId
+  useEffect(() => {
+    if (!evseId) return;
+
+    const fetchStationName = async () => {
+      try {
+        const response = await fetch('/device_locations_api - Stations.csv');
+        const text = await response.text();
+        const result = Papa.parse<any>(text, { header: true, skipEmptyLines: true });
+        
+        console.log('CSV parsed, looking for EVSE ID:', evseId);
+        
+        // Try to find matching station - handle whitespace and case
+        const station = (result.data || []).find((row: any) => {
+          const csvEvseId = row['EVSE ID'] ? String(row['EVSE ID']).trim() : '';
+          const matches = csvEvseId === evseId;
+          if(matches) console.log('Found matching station:', row['Station Name']);
+          return matches;
+        });
+        
+        if (station && station['Station Name']) {
+          const name = String(station['Station Name']).trim();
+          console.log('Setting station name:', name);
+          setStationName(name);
+        } else {
+          console.log('No matching station found for EVSE ID:', evseId);
+        }
+      } catch (err) {
+        console.error('Error fetching station name:', err);
+      }
+    };
+
+    fetchStationName();
+  }, [evseId]);
 
   useEffect(() => {
     if (!evseId) return;
@@ -62,22 +106,8 @@ const AIReport: React.FC = () => {
       const token = await getToken().catch(() => null);
       const authHeader = token ? `Bearer ${token}` : '';
 
-      // Always check for an existing completed report first
-      try {
-        const res = await fetch(`${API_URL}/reports`, {
-          headers: { Authorization: authHeader },
-        });
-        if (res.ok) {
-          const { reports } = await res.json();
-          const found = (reports || []).find(
-            (r: any) => r.evseId === evseId && r.connector === connectorId && r.status === 'completed' && r.s3Url
-          );
-          if (found) {
-            setS3Url(found.s3Url);
-            return;
-          }
-        }
-      } catch { /* fall through */ }
+      // SKIP cache - always generate fresh report
+      // (This ensures we get fresh localhost ML results, not old AWS cached reports)
 
       setGenerating(true);
       setGenError(null);
@@ -103,6 +133,14 @@ const AIReport: React.FC = () => {
           }
           const d = await retry.json();
           setS3Url(d.s3Url);
+          // Store ML data from response
+          setMlData({
+            anomalies: d.anomalies,
+            totalSamples: d.totalSamples,
+            totalAnomalies: d.totalAnomalies,
+            generatedAt: d.generatedAt,
+            recommendations: d.recommendations || []
+          });
           return;
         }
 
@@ -112,6 +150,14 @@ const AIReport: React.FC = () => {
         }
         const d = await res.json();
         setS3Url(d.s3Url);
+        // Store ML data from response
+        setMlData({
+          anomalies: d.anomalies,
+          totalSamples: d.totalSamples,
+          totalAnomalies: d.totalAnomalies,
+          generatedAt: d.generatedAt,
+          recommendations: d.recommendations || []
+        });
       };
 
       try {
@@ -128,25 +174,41 @@ const AIReport: React.FC = () => {
   }, [evseId, connectorId]);
 
   const data: DeviceAIReport = useMemo(() => {
-    const idNum = Number(deviceId || '5');
-    const severity = Number.isNaN(idNum)
-      ? 'Stable'
-      : idNum <= 5
-        ? 'Immediate Action Required'
-        : idNum <= 6
-          ? 'Degradation Accelerating'
-          : idNum <= 7
-            ? 'Moderate Irregularities'
-            : 'Stable';
+    // Use real ML data if available, otherwise show loading state
+    if (!mlData) {
+      return {
+        device_id: backendDeviceId,
+        status: 'Loading...',
+        summary: 'Waiting for ML analysis...',
+        recommended_actions: [],
+        anomalies: { total: 0, breakdown: { critical: 0, high: 0, medium: 0, low: 0 } },
+        generated_at: new Date().toISOString()
+      };
+    }
+
+    // Calculate severity based on anomaly percentage
+    const anomalyPercentage = mlData.totalSamples > 0 
+      ? (mlData.totalAnomalies / mlData.totalSamples) * 100 
+      : 0;
+
+    let severity = 'Stable';
+    if (anomalyPercentage >= 40) {
+      severity = 'Immediate Action Required';
+    } else if (anomalyPercentage >= 25) {
+      severity = 'Degradation Accelerating';
+    } else if (anomalyPercentage >= 10) {
+      severity = 'Moderate Irregularities';
+    }
 
     const summaryBySeverity: Record<string, string> = {
       'Immediate Action Required':
-        'Critical anomalies detected indicating potential safety or reliability risks. Immediate diagnostic and potential replacement recommended.',
+        `Critical anomalies detected in ${anomalyPercentage.toFixed(1)}% of samples. This indicates potential safety or reliability risks. Immediate diagnostic and potential replacement recommended.`,
       'Degradation Accelerating':
-        'High severity anomalies present. Performance trending downward; proactive maintenance advisable soon.',
+        `High severity anomalies present in ${anomalyPercentage.toFixed(1)}% of samples. Performance trending downward; proactive maintenance advisable soon.`,
       'Moderate Irregularities':
-        'Some anomalies observed but within controlled bounds. Monitor and optimize usage patterns.',
-      Stable: 'No material anomalies. Battery operating within expected parameters.'
+        `Some anomalies observed (${anomalyPercentage.toFixed(1)}%) but within controlled bounds. Monitor and optimize usage patterns.`,
+      Stable: 
+        `No material anomalies detected (${anomalyPercentage.toFixed(1)}%). Battery operating within expected parameters.`
     };
 
     const actionsBySeverity: Record<string, string[]> = {
@@ -176,29 +238,21 @@ const AIReport: React.FC = () => {
       ]
     };
 
-    const breakdown: Record<string, number> = {
-      critical: severity === 'Immediate Action Required' ? 3 : 0,
-      high: severity === 'Degradation Accelerating' ? 4 : 0,
-      medium: severity === 'Moderate Irregularities' ? 5 : severity === 'Stable' ? 1 : 2,
-      low: severity === 'Stable' ? 20 : 6
-    };
-
-    const total = Object.entries(breakdown)
-      .filter(([key]) => key !== 'low')
-      .reduce((sum, [, value]) => sum + value, 0);
-
     return {
       device_id: backendDeviceId,
       status: severity,
       summary: summaryBySeverity[severity],
       recommended_actions: actionsBySeverity[severity],
-      anomalies: { total, breakdown },
-      generated_at: new Date().toISOString()
+      anomalies: {
+        total: mlData.anomalies.critical + mlData.anomalies.high + mlData.anomalies.medium,
+        breakdown: mlData.anomalies
+      },
+      generated_at: mlData.generatedAt || new Date().toISOString()
     };
-  }, [backendDeviceId, deviceId]);
+  }, [backendDeviceId, mlData]);
 
-    const visibleActions = data.recommended_actions.slice(0, 3);
-    const hiddenActions = data.recommended_actions.slice(3);
+    const visibleActions = data?.recommended_actions?.slice(0, 3) ?? [];
+    const hiddenActions = data?.recommended_actions?.slice(3) ?? [];
 
     const handleComingSoon = useCallback(() => {
       alert('This feature will be available soon.');
@@ -308,6 +362,9 @@ const AIReport: React.FC = () => {
                 <Battery className="text-white" size={24} />
               </div>
               <div>
+                {stationName && (
+                  <p className="text-sm text-blue-600 font-semibold mb-1">{stationName}</p>
+                )}
                 <h2 className="text-2xl font-bold text-gray-900">{backendDeviceId.toUpperCase()}</h2>
                 <p className="text-gray-600">AI Interpretation</p>
                 <p className="text-sm text-gray-500 mt-1">
@@ -329,7 +386,7 @@ const AIReport: React.FC = () => {
 
           {data && (
             <div className="space-y-8">
-              {/* ML Report Images from S3 */}
+              {/* ML Report Images from S3 or localhost */}
               {s3Url && (
                 <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
                   <h3 className="text-sm font-semibold text-blue-700 mb-3 flex items-center gap-2">
@@ -337,17 +394,41 @@ const AIReport: React.FC = () => {
                     AI Analysis Report
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {['battery_health_report', 'voltage_analysis', 'current_analysis', 'soc_analysis'].map((name) => (
-                      <div key={name} className="rounded-lg overflow-hidden border border-blue-100 bg-white">
-                        <p className="text-xs text-gray-500 px-3 pt-2 font-medium capitalize">{name.replace(/_/g, ' ')}</p>
-                        <img
-                          src={`${s3Url}/${name}.png`}
-                          alt={name}
-                          className="w-full object-contain"
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                        />
-                      </div>
-                    ))}
+                    {['battery_health_report', 'voltage_analysis', 'current_analysis', 'soc_analysis'].map((name) => {
+                      // Build image URL - handle both localhost full URLs and directory paths
+                      let imgUrl: string;
+                      if (s3Url.includes('http://') || s3Url.includes('https://')) {
+                        // Full URL - if it's already battery_health_report.png and we want that, use it; otherwise append
+                        if (s3Url.includes('battery_health_report.png')) {
+                          // Full URL to battery_health_report.png - only use for battery_health_report
+                          imgUrl = name === 'battery_health_report' ? s3Url : `${s3Url.replace('battery_health_report.png', '')}${name}.png`;
+                        } else {
+                          // Directory path - append filename
+                          imgUrl = `${s3Url}${s3Url.endsWith('/') ? '' : '/'}${name}.png`;
+                        }
+                      } else {
+                        // Relative path - convert to localhost
+                        if (s3Url.includes('battery_health_report.png')) {
+                          imgUrl = name === 'battery_health_report' ? 
+                            `http://localhost:3001/api/${s3Url}` : 
+                            `http://localhost:3001/api/${s3Url.replace('battery_health_report.png', '')}${name}.png`;
+                        } else {
+                          imgUrl = `http://localhost:3001/api/${s3Url}${s3Url.endsWith('/') ? '' : '/'}${name}.png`;
+                        }
+                      }
+                      
+                      return (
+                        <div key={name} className="rounded-lg overflow-hidden border border-blue-100 bg-white">
+                          <p className="text-xs text-gray-500 px-3 pt-2 font-medium capitalize">{name.replace(/_/g, ' ')}</p>
+                          <img
+                            src={imgUrl}
+                            alt={name}
+                            className="w-full object-contain"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -532,6 +613,20 @@ const AIReport: React.FC = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Recommendations Section - Top 3 */}
+              {mlData?.recommendations && mlData.recommendations.length > 0 && (
+                <div className="rounded-xl border border-yellow-200 bg-gradient-to-br from-yellow-50 to-yellow-25 p-6">
+                  <h3 className="text-lg font-semibold text-yellow-900 mb-4">Quick Recommendations</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {mlData.recommendations.slice(0, 3).map((recommendation, index) => (
+                      <div key={index} className="bg-white border border-yellow-100 rounded-lg p-4 shadow-sm">
+                        <p className="text-sm text-gray-800">{recommendation}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="bg-white border border-gray-200 p-4 sm:p-6 rounded-xl">
                 <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-3 sm:mb-4 flex items-center">

@@ -54,23 +54,29 @@ jobs:
         run: |
           aws ecs describe-task-definition --task-definition ${{ env.ECS_TASK_DEFINITION }} \
             --query taskDefinition > td.json
-          cat td.json | jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' > battery-ml-lambda/task-definition.json
 
-      - name: Fill in the new image ID in the Amazon ECS task definition
+      - name: Clean and update task definition
+        run: |
+          # Remove non-updatable fields
+          cat td.json | jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' > task-def-clean.json
+          
+          # Update container image
+          cat task-def-clean.json | jq ".containerDefinitions[] |= if .name == \"battery-ml-container\" then .image = \"${{ steps.image.outputs.image }}\" else . end" > task-def-updated.json
+
+      - name: Register new task definition
         id: task-def
-        uses: aws-actions/render-amazon-ecs-task-definition@v1
-        with:
-          task-definition: battery-ml-lambda/task-definition.json
-          container-name: battery-ml-container
-          image: ${{ steps.image.outputs.image }}
+        run: |
+          aws ecs register-task-definition \
+            --cli-input-json file://task-def-updated.json \
+            --region ${{ env.AWS_REGION }}
 
-      - name: Deploy to Amazon ECS service
-        uses: aws-actions/deploy-to-ecs@v1
-        with:
-          task-definition: ${{ steps.task-def.outputs.task-definition }}
-          service: ${{ env.ECS_SERVICE }}
-          cluster: ${{ env.ECS_CLUSTER }}
-          wait-for-service-stability: true
+      - name: Update ECS Service
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service ${{ env.ECS_SERVICE }} \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
 
       - name: Deployment complete
         run: echo "ML Service deployed to ECS successfully"
