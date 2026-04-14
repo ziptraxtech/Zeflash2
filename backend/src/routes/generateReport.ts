@@ -7,7 +7,7 @@ import { prisma } from '../lib/prisma';
 const ML_BACKEND_URL = 
   process.env.ML_BACKEND_URL || 
   (process.env.NODE_ENV === 'production' 
-    ? 'http://44.197.181.236:8000'  // ECS ML service endpoint
+    ? 'http://44.197.181.236:8000'  // ECS ML service endpoint (from env var)
     : 'http://127.0.0.1:8000');       // Local development
 
 console.log(`[generateReport] ML Backend: ${ML_BACKEND_URL}`);
