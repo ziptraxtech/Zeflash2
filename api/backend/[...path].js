@@ -5,27 +5,26 @@
  */
 
 export default async function handler(req, res) {
-  // Backend URL - use server-side env var, not VITE_ (which is frontend-only)
-  const BACKEND_URL = process.env.BACKEND_API_URL || process.env.VITE_API_BASE || 'http://3.90.162.23:3000';
-  
-  if (!BACKEND_URL || BACKEND_URL.includes('vercel.app')) {
-    console.error('❌ BACKEND_API_URL not set or pointing to Vercel (loop!)');
-    console.error('   Set BACKEND_API_URL in Vercel env vars to your EC2 IP');
-    return res.status(500).json({
-      error: 'Backend API URL not configured',
-      message: 'BACKEND_API_URL environment variable must point to EC2 backend'
-    });
-  }
-  
-  // Enable CORS for all origins
+  // Always set CORS headers first — OPTIONS preflight must always return 200
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Max-Age', '86400');
 
-  // Handle preflight
+  // Handle preflight before any other logic
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
+  }
+
+  // Backend URL - use server-side env var only (VITE_ vars are frontend-only)
+  const BACKEND_URL = process.env.BACKEND_API_URL || 'http://3.90.162.23:3001';
+
+  if (!BACKEND_URL || BACKEND_URL.includes('vercel.app')) {
+    console.error('❌ BACKEND_API_URL not set or pointing to Vercel (loop!)');
+    return res.status(500).json({
+      error: 'Backend API URL not configured',
+      message: 'Set BACKEND_API_URL in Vercel env vars to your EC2 IP (e.g. http://3.90.162.23:3001)'
+    });
   }
 
   try {
