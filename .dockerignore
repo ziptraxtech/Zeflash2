@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+**/node_modules/
+.venv/
+**/.venv/
+pip-packages/
+pandas/
+scipy/
+sklearn/
+
+# Build outputs
+dist/
+build/
+**/.next/
+
+# ML models (large files - copy separately if needed)
+battery-ml-lambda/models/
+
+# Android build artifacts
+android/build/
+android/.gradle/
+android/app/build/
+
+# Dev/test files
+*.log
+*.tmp
+.env.local
+.env.*.local
+coverage/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Docs (not needed in container)
+*.md

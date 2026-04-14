@@ -29,9 +29,17 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // Build target path
-    const pathArray = Array.isArray(req.query.path) ? req.query.path : (req.query.path ? [req.query.path] : []);
-    const path = pathArray.length > 0 ? '/' + pathArray.join('/') : '/health';
+    // Extract path - strip /api/backend prefix, support both query param and URL
+    let path;
+    const urlPath = req.url ? req.url.split('?')[0] : '';
+    if (urlPath.startsWith('/api/backend')) {
+      path = urlPath.replace('/api/backend', '') || '/health';
+    } else if (urlPath.startsWith('/api/proxy')) {
+      path = urlPath.replace('/api/proxy', '') || '/health';
+    } else {
+      const pathArray = Array.isArray(req.query.path) ? req.query.path : (req.query.path ? [req.query.path] : []);
+      path = pathArray.length > 0 ? '/' + pathArray.join('/') : '/health';
+    }
     const targetUrl = BACKEND_URL + path;
 
     console.log(`Proxy: ${req.method} ${targetUrl}`);
