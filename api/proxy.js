@@ -61,9 +61,17 @@ module.exports = async function handler(req, res) {
         method: req.method,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': req.headers.authorization || '',
         },
       };
+      
+      // Forward Authorization header if present
+      if (req.headers.authorization) {
+        options.headers['Authorization'] = req.headers.authorization;
+        console.log(`[Proxy] Authorization header forwarded`);
+      } else {
+        console.log(`[Proxy] ⚠️  No Authorization header found`);
+      }
+      
       if (bodyStr) options.headers['Content-Length'] = Buffer.byteLength(bodyStr);
 
       const proxyReq = lib.request(options, (proxyRes) => {
