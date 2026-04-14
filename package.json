@@ -2,7 +2,7 @@
   "name": "zeflash-landing",
   "private": true,
   "version": "0.0.0",
-  "engines": { "node": "18.x" },
+  "engines": { "node": "22.x" },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
