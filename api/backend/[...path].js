@@ -4,7 +4,7 @@
  * Route: /api/backend/* → EC2 backend:3000/*
  */
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // Always set CORS headers first — OPTIONS preflight must always return 200
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
