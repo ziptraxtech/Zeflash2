@@ -2,11 +2,18 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "functions": {
-    "api/**/*.js": {
+    "api/proxy.js": {
+      "runtime": "nodejs18.x"
+    },
+    "api/ml-proxy.js": {
       "runtime": "nodejs18.x"
     }
   },
   "rewrites": [
+    {
+      "source": "/api/backend/:path*",
+      "destination": "/api/proxy"
+    },
     {
       "source": "/api/ml-proxy/:path*",
       "destination": "/api/ml-proxy"
