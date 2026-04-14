@@ -1,10 +1,6 @@
 // Vercel Serverless Function - Backend Proxy
 // Route: /api/backend/* → EC2 backend
 
-const https = require('https');
-const http = require('http');
-const { URL } = require('url');
-
 module.exports = async function handler(req, res) {
   // Always set CORS headers first — OPTIONS preflight must always return 200
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -14,19 +10,13 @@ module.exports = async function handler(req, res) {
 
   // Handle preflight before any other logic
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    res.status(200);
+    res.end();
+    return;
   }
 
   // Backend URL - use server-side env var only (VITE_ vars are frontend-only)
   const BACKEND_URL = process.env.BACKEND_API_URL || 'http://3.90.162.23:3000';
-
-  if (!BACKEND_URL || BACKEND_URL.includes('vercel.app')) {
-    console.error('❌ BACKEND_API_URL not set or pointing to Vercel (loop!)');
-    return res.status(500).json({
-      error: 'Backend API URL not configured',
-      message: 'Set BACKEND_API_URL in Vercel env vars to your EC2 IP (e.g. http://3.90.162.23:3001)'
-    });
-  }
 
   try {
     // Build target path
@@ -34,49 +24,40 @@ module.exports = async function handler(req, res) {
     const path = pathArray.length > 0 ? '/' + pathArray.join('/') : '/health';
     const targetUrl = BACKEND_URL + path;
 
-    console.log(`Proxy: ${req.method} ${targetUrl}`);
+    console.log(`[Proxy] ${req.method} ${targetUrl}`);
 
-    // Build body
-    let bodyStr;
-    if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.body) {
-      bodyStr = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+    // Build request options
+    const fetchOptions = {
+      method: req.method,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    };
+
+    // Add Authorization header if present
+    if (req.headers.authorization) {
+      fetchOptions.headers['Authorization'] = req.headers.authorization;
     }
 
-    // Forward request using Node's built-in http/https (no fetch dependency)
-    const result = await new Promise((resolve, reject) => {
-      const parsed = new URL(targetUrl);
-      const lib = parsed.protocol === 'https:' ? https : http;
-      const options = {
-        hostname: parsed.hostname,
-        port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
-        path: parsed.pathname + parsed.search,
-        method: req.method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': req.headers.authorization || '',
-        },
-      };
-      if (bodyStr) options.headers['Content-Length'] = Buffer.byteLength(bodyStr);
+    // Add body for POST/PUT/PATCH
+    if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.body) {
+      fetchOptions.body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+    }
 
-      const proxyReq = lib.request(options, (proxyRes) => {
-        let data = '';
-        proxyRes.on('data', (chunk) => { data += chunk; });
-        proxyRes.on('end', () => resolve({ status: proxyRes.statusCode, body: data }));
-      });
-      proxyReq.on('error', reject);
-      if (bodyStr) proxyReq.write(bodyStr);
-      proxyReq.end();
-    });
+    // Make the request using native fetch
+    const response = await fetch(targetUrl, fetchOptions);
+    const data = await response.json().catch(() => ({}));
 
-    // Try to parse as JSON, fall back to text
-    let responseData;
-    try { responseData = JSON.parse(result.body); }
-    catch { responseData = { raw: result.body }; }
-
-    return res.status(result.status).json(responseData);
+    res.status(response.status);
+    res.json(data);
 
   } catch (error) {
-    console.error('Proxy error:', error.message);
-    return res.status(502).json({ error: 'Proxy failed', message: error.message, backend: BACKEND_URL });
+    console.error('[Proxy Error]', error.message);
+    res.status(502).json({ 
+      error: 'Proxy failed', 
+      message: error.message, 
+      backend: BACKEND_URL 
+    });
   }
+}
 }
