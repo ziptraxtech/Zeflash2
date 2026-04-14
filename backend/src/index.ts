@@ -46,7 +46,7 @@ app.post('/debug/clear-reports', async (_req, res) => {
 // ML Backend connectivity test
 app.get('/health/ml', async (_req, res) => {
   try {
-    const ml_url = process.env.ML_BACKEND_URL || 'http://127.0.0.1:8000';
+    const ml_url = process.env.ML_BACKEND_URL || 'http://44.197.181.236:8000';
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
     
@@ -61,7 +61,7 @@ app.get('/health/ml', async (_req, res) => {
   } catch (error: any) {
     return res.status(502).json({ 
       status: 'error', 
-      ml_backend: process.env.ML_BACKEND_URL || 'http://127.0.0.1:8000',
+      ml_backend: process.env.ML_BACKEND_URL || 'http://44.197.181.236:8000',
       error: error.message 
     });
   }

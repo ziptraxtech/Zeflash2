@@ -69,7 +69,7 @@ echo "🎯 Starting Backend server (Express) on port 3000..."\n\
 cd /app/backend\n\
 export PORT=3000\n\
 export NODE_ENV=production\n\
-export ML_BACKEND_URL=http://localhost:8000\n\
+export ML_BACKEND_URL=${ML_BACKEND_URL:-http://44.197.181.236:8000}\n\
 exec node --max-old-space-size=512 /app/backend/dist/index.js\n\
 ' > /app/start-unified.sh && chmod +x /app/start-unified.sh
 
