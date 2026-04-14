@@ -59,15 +59,28 @@ export default async function handler(req, res) {
       },
     };
 
-    // Add Authorization header if present
-    if (req.headers.authorization) {
-      options.headers['Authorization'] = req.headers.authorization;
+    // Forward all relevant headers from frontend
+    const headersToForward = ['authorization', 'content-type', 'accept'];
+    for (const header of headersToForward) {
+      if (req.headers[header]) {
+        options.headers[header.charAt(0).toUpperCase() + header.slice(1)] = req.headers[header];
+      }
     }
 
     // Add body for POST/PUT/PATCH
-    if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.body) {
-      options.body = JSON.stringify(req.body);
+    if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
+      if (req.body) {
+        // Handle both object and string bodies
+        if (typeof req.body === 'string') {
+          options.body = req.body;
+        } else {
+          options.body = JSON.stringify(req.body);
+        }
+      }
     }
+    
+    console.log(`   Headers: ${JSON.stringify(options.headers)}`);
+    console.log(`   Body: ${typeof options.body === 'string' ? options.body.substring(0, 200) : 'none'}`);
 
     // Make request to backend
     const response = await fetch(targetUrl, options);
@@ -94,14 +107,16 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('❌ Backend Proxy Error:', error.message);
-    console.error('   Error Details:', error);
+    console.error('   Stack:', error.stack);
+    console.error('   Backend URL:', BACKEND_URL);
     
     res.status(500).json({
       error: 'Backend proxy error',
       message: error.message,
       details: error.toString(),
       backend_url: BACKEND_URL,
-      note: 'Check that backend is running and accessible'
+      note: 'Check EC2 backend logs and ensure port 3000 is open'
     });
   }
+}
 }
