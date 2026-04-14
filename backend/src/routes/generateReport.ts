@@ -3,14 +3,16 @@ import { requireAuth, AuthRequest } from '../middleware/auth';
 import { getOrCreateUser, deductCredit } from '../services/userService';
 import { prisma } from '../lib/prisma';
 
-// ML Backend URL - defaults to localhost for development
+// ML Backend URL - from environment variable or sensible defaults
 const ML_BACKEND_URL = 
   process.env.ML_BACKEND_URL || 
   (process.env.NODE_ENV === 'production' 
-    ? 'http://battery-ml-alb-1652817744.us-east-1.elb.amazonaws.com'
-    : 'http://127.0.0.1:8000');
+    ? 'http://44.197.181.236:8000'  // ECS ML service endpoint
+    : 'http://127.0.0.1:8000');       // Local development
 
 console.log(`[generateReport] ML Backend: ${ML_BACKEND_URL}`);
+console.log(`[generateReport] NODE_ENV: ${process.env.NODE_ENV}`);
+console.log(`[generateReport] ML_BACKEND_URL env var: ${process.env.ML_BACKEND_URL || 'not set'}`);
 if (!process.env.ML_BACKEND_URL) {
   console.log(`[generateReport] Using default endpoint for NODE_ENV=${process.env.NODE_ENV || 'development'}`);
 }
