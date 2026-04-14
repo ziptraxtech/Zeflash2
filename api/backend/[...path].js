@@ -18,7 +18,7 @@ module.exports = async function handler(req, res) {
   }
 
   // Backend URL - use server-side env var only (VITE_ vars are frontend-only)
-  const BACKEND_URL = process.env.BACKEND_API_URL || 'http://3.90.162.23:3001';
+  const BACKEND_URL = process.env.BACKEND_API_URL || 'http://3.90.162.23:3000';
 
   if (!BACKEND_URL || BACKEND_URL.includes('vercel.app')) {
     console.error('❌ BACKEND_API_URL not set or pointing to Vercel (loop!)');
