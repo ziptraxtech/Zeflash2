@@ -1,8 +1,9 @@
-/**
- * Vercel Serverless Function - Backend Proxy
- * Proxies all requests to EC2 backend
- * Route: /api/backend/* → EC2 backend:3000/*
- */
+// Vercel Serverless Function - Backend Proxy
+// Route: /api/backend/* → EC2 backend
+
+const https = require('https');
+const http = require('http');
+const { URL } = require('url');
 
 module.exports = async function handler(req, res) {
   // Always set CORS headers first — OPTIONS preflight must always return 200
@@ -28,94 +29,55 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // Extract path from Vercel catch-all route
-    // For /api/backend/generate-report -> req.query.path = ['generate-report']
-    let pathArray = req.query.path || [];
-    
-    // Ensure it's an array
-    if (!Array.isArray(pathArray)) {
-      pathArray = [pathArray];
-    }
-    
-    // Construct full path
-    const path = pathArray.length > 0 
-      ? '/' + pathArray.join('/') 
-      : '/health';
+    // Build target path
+    const pathArray = Array.isArray(req.query.path) ? req.query.path : (req.query.path ? [req.query.path] : []);
+    const path = pathArray.length > 0 ? '/' + pathArray.join('/') : '/health';
+    const targetUrl = BACKEND_URL + path;
 
-    const targetUrl = `${BACKEND_URL}${path}`;
+    console.log(`Proxy: ${req.method} ${targetUrl}`);
 
-    console.log(`🔄 Backend Proxy: ${req.method} ${targetUrl}`);
-    console.log(`   Method: ${req.method}`);
-    console.log(`   Path: ${path}`);
-    console.log(`   Backend: ${BACKEND_URL}`);
-
-    // Prepare request options
-    const options = {
-      method: req.method,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-    };
-
-    // Forward all relevant headers from frontend
-    const headersToForward = ['authorization', 'content-type', 'accept'];
-    for (const header of headersToForward) {
-      if (req.headers[header]) {
-        options.headers[header.charAt(0).toUpperCase() + header.slice(1)] = req.headers[header];
-      }
+    // Build body
+    let bodyStr;
+    if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.body) {
+      bodyStr = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
     }
 
-    // Add body for POST/PUT/PATCH
-    if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
-      if (req.body) {
-        // Handle both object and string bodies
-        if (typeof req.body === 'string') {
-          options.body = req.body;
-        } else {
-          options.body = JSON.stringify(req.body);
-        }
-      }
-    }
-    
-    console.log(`   Headers: ${JSON.stringify(options.headers)}`);
-    console.log(`   Body: ${typeof options.body === 'string' ? options.body.substring(0, 200) : 'none'}`);
+    // Forward request using Node's built-in http/https (no fetch dependency)
+    const result = await new Promise((resolve, reject) => {
+      const parsed = new URL(targetUrl);
+      const lib = parsed.protocol === 'https:' ? https : http;
+      const options = {
+        hostname: parsed.hostname,
+        port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+        path: parsed.pathname + parsed.search,
+        method: req.method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': req.headers.authorization || '',
+        },
+      };
+      if (bodyStr) options.headers['Content-Length'] = Buffer.byteLength(bodyStr);
 
-    // Make request to backend
-    const response = await fetch(targetUrl, options);
-    
-    console.log(`   Response Status: ${response.status}`);
+      const proxyReq = lib.request(options, (proxyRes) => {
+        let data = '';
+        proxyRes.on('data', (chunk) => { data += chunk; });
+        proxyRes.on('end', () => resolve({ status: proxyRes.statusCode, body: data }));
+      });
+      proxyReq.on('error', reject);
+      if (bodyStr) proxyReq.write(bodyStr);
+      proxyReq.end();
+    });
 
-    // Get response content type
-    const contentType = response.headers.get('content-type');
-    let data;
+    // Try to parse as JSON, fall back to text
+    let responseData;
+    try { responseData = JSON.parse(result.body); }
+    catch { responseData = { raw: result.body }; }
 
-    if (contentType && contentType.includes('application/json')) {
-      data = await response.json();
-    } else {
-      data = await response.text();
-    }
-
-    // Forward status and data
-    if (response.ok) {
-      res.status(response.status).json(data);
-    } else {
-      console.error(`   Error: ${response.status}`, data);
-      res.status(response.status).json(data);
-    }
+    return res.status(result.status).json(responseData);
 
   } catch (error) {
-    console.error('❌ Backend Proxy Error:', error.message);
-    console.error('   Stack:', error.stack);
-    console.error('   Backend URL:', BACKEND_URL);
-    
-    res.status(500).json({
-      error: 'Backend proxy error',
-      message: error.message,
-      details: error.toString(),
-      backend_url: BACKEND_URL,
-      note: 'Check EC2 backend logs and ensure port 3000 is open'
-    });
+    console.error('Proxy error:', error.message);
+    return res.status(502).json({ error: 'Proxy failed', message: error.message, backend: BACKEND_URL });
   }
 }
 }
