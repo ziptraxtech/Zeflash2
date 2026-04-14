@@ -20,17 +20,26 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Extract path from query params
-    const pathArray = (req.query.path || []);
-    const path = Array.isArray(pathArray) 
+    // Extract path from Vercel catch-all route
+    // For /api/backend/generate-report -> req.query.path = ['generate-report']
+    let pathArray = req.query.path || [];
+    
+    // Ensure it's an array
+    if (!Array.isArray(pathArray)) {
+      pathArray = [pathArray];
+    }
+    
+    // Construct full path
+    const path = pathArray.length > 0 
       ? '/' + pathArray.join('/') 
       : '/health';
 
     const targetUrl = `${BACKEND_URL}${path}`;
 
-    console.log(`🔄 Backend Proxy: ${req.method} ${path}`);
-    console.log(`   Target: ${targetUrl}`);
-    console.log(`   Backend URL: ${BACKEND_URL}`);
+    console.log(`🔄 Backend Proxy: ${req.method} ${targetUrl}`);
+    console.log(`   Method: ${req.method}`);
+    console.log(`   Path: ${path}`);
+    console.log(`   Backend: ${BACKEND_URL}`);
 
     // Prepare request options
     const options = {
@@ -53,23 +62,37 @@ export default async function handler(req, res) {
 
     // Make request to backend
     const response = await fetch(targetUrl, options);
+    
+    console.log(`   Response Status: ${response.status}`);
 
-    // Get response data
-    const data = await response.json().catch(() => ({}));
+    // Get response content type
+    const contentType = response.headers.get('content-type');
+    let data;
+
+    if (contentType && contentType.includes('application/json')) {
+      data = await response.json();
+    } else {
+      data = await response.text();
+    }
 
     // Forward status and data
-    res.status(response.status).json({
-      ...data,
-      _proxied: true,
-      _backend: BACKEND_URL,
-    });
+    if (response.ok) {
+      res.status(response.status).json(data);
+    } else {
+      console.error(`   Error: ${response.status}`, data);
+      res.status(response.status).json(data);
+    }
 
   } catch (error) {
     console.error('❌ Backend Proxy Error:', error.message);
+    console.error('   Error Details:', error);
+    
     res.status(500).json({
-      error: 'Backend proxy failed',
+      error: 'Backend proxy error',
       message: error.message,
-      _backend: BACKEND_URL,
+      details: error.toString(),
+      backend_url: BACKEND_URL,
+      note: 'Check that backend is running and accessible'
     });
   }
 }
