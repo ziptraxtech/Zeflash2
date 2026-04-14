@@ -80,4 +80,3 @@ module.exports = async function handler(req, res) {
     return res.status(502).json({ error: 'Proxy failed', message: error.message, backend: BACKEND_URL });
   }
 }
-}
