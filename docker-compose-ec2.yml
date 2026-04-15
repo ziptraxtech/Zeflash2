@@ -3,8 +3,8 @@ version: '3.8'
 services:
   zeflash-ml:
     build:
-      context: .
-      dockerfile: battery-ml-lambda/Dockerfile
+      context: battery-ml-lambda
+      dockerfile: Dockerfile
     image: battery-ml:local
     container_name: zeflash-ml
     ports:
