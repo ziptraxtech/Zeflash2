@@ -1,0 +1,12 @@
+{
+  "cluster": "ml-cluster",
+  "service": "battery-ml-service-alb",
+  "taskDefinition": "battery-ml-task-test:22",
+  "loadBalancers": [
+    {
+      "targetGroupArn": "arn:aws:elasticloadbalancing:us-east-1:070872471952:targetgroup/battery-ml-tg/b666c9df3efc0bd3",
+      "containerName": "battery-ml-container-test",
+      "containerPort": 8000
+    }
+  ]
+}
