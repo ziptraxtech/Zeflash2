@@ -3,6 +3,8 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { creditsRouter } from './routes/credits';
 import { createOrderRouter } from './routes/createOrder';
 import { confirmPaymentRouter } from './routes/confirmPayment';
@@ -13,6 +15,10 @@ import inferenceResultsRouter from './routes/inferenceResults';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Initialize S3 client
+const s3Client = new S3Client({ region: 'us-east-1' });
+const S3_BUCKET = process.env.S3_BUCKET || 'battery-ml-results-test';
 
 // CORS — allow Vercel frontend
 app.use(cors({
@@ -67,34 +73,47 @@ app.get('/health/ml', async (_req, res) => {
   }
 });
 
-// Serve local report images
-app.get('/api/reports/:deviceId/:filename', (req: Request, res: Response) => {
-  const deviceId = Array.isArray(req.params.deviceId) ? req.params.deviceId[0] : req.params.deviceId;
-  const filename = Array.isArray(req.params.filename) ? req.params.filename[0] : req.params.filename;
-  
-  // Security: only allow battery_health_report.png
-  if (filename !== 'battery_health_report.png') {
-    return res.status(403).json({ error: 'Access denied' });
+// Serve report images from S3
+app.get('/api/reports/:deviceId/:filename', async (req: Request, res: Response) => {
+  try {
+    const deviceId = Array.isArray(req.params.deviceId) ? req.params.deviceId[0] : req.params.deviceId;
+    const filename = Array.isArray(req.params.filename) ? req.params.filename[0] : req.params.filename;
+    
+    // Security: only allow battery_health_report.png
+    if (filename !== 'battery_health_report.png') {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    // Construct S3 key: battery-reports/deviceId/filename
+    const s3Key = `battery-reports/${deviceId}/${filename}`;
+    
+    console.log(`[API] Fetching from S3: s3://${S3_BUCKET}/${s3Key}`);
+    
+    // Generate presigned URL (valid for 24 hours)
+    const command = new GetObjectCommand({
+      Bucket: S3_BUCKET,
+      Key: s3Key,
+    });
+    
+    const presignedUrl = await getSignedUrl(s3Client, command, { expiresIn: 86400 });
+    
+    // Redirect to presigned URL (OR stream the image)
+    // Option 1: Redirect to presigned URL
+    res.redirect(presignedUrl);
+    
+  } catch (error: any) {
+    console.error('[API] S3 fetch error:', error);
+    
+    // Check if it's a NoSuchKey error (file not found)
+    if (error.code === 'NoSuchKey') {
+      return res.status(404).json({ error: 'Report image not found in S3' });
+    }
+    
+    return res.status(500).json({ 
+      error: 'Failed to retrieve report image',
+      detail: error.message 
+    });
   }
-  
-  // Construct path to ML backend reports directory
-  const reportPath = path.join(
-    __dirname,
-    '../../battery-ml-lambda/reports',
-    deviceId,
-    filename
-  );
-  
-  // Verify file exists
-  if (!fs.existsSync(reportPath)) {
-    console.log(`[API] Report not found: ${reportPath}`);
-    return res.status(404).json({ error: 'Report not found' });
-  }
-  
-  // Serve the file
-  res.setHeader('Content-Type', 'image/png');
-  res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
-  res.sendFile(reportPath);
 });
 
 // Routes
