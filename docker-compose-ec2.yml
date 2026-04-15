@@ -65,6 +65,3 @@ services:
 
 volumes:
   backend-data:
-
-volumes:
-  backend-data:
