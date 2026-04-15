@@ -9,7 +9,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - ML_BACKEND_URL=${ML_BACKEND_URL:-http://44.197.181.236:8000}
+      - ML_BACKEND_URL=${ML_BACKEND_URL:-http://battery-ml-alb-1652817744.us-east-1.elb.amazonaws.com:8000}
       - BACKEND_API_URL=${BACKEND_API_URL:-http://3.90.162.23:3000}
       - S3_BUCKET=${S3_BUCKET}
       - AWS_REGION=${AWS_REGION}
