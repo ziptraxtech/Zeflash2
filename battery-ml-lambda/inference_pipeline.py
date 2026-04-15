@@ -36,6 +36,7 @@ warnings.filterwarnings('ignore', category=DeprecationWarning)
 warnings.filterwarnings('ignore', category=FutureWarning)
 
 # REMOVED: boto3 is no longer needed (local file storage only)
+import boto3
 import numpy as np
 import pandas as pd
 import joblib
@@ -676,61 +677,60 @@ def generate_visualization(result: Dict, device_id: str, station_name: Optional[
 
 
 def upload_to_s3(buf: io.BytesIO, device_id: str, result: Dict) -> Tuple[str, str]:
-    """Save visualization locally. Returns relative path for local serving."""
-    # Save to local directory instead of S3
-    reports_dir = os.path.join(os.path.dirname(__file__), "reports", device_id)
-    
-    print(f"[DEBUG] Creating reports directory: {reports_dir}")
-    print(f"[DEBUG] Directory exists before makedirs: {os.path.exists(reports_dir)}")
-    print(f"[DEBUG] Parent directory: {os.path.dirname(__file__)}")
-    
+    """Upload visualization to S3 bucket. Returns S3 key and path."""
     try:
-        os.makedirs(reports_dir, exist_ok=True)
-        print(f"[DEBUG] Directory created/exists: {os.path.exists(reports_dir)}")
-    except Exception as e:
-        print(f"[ERROR] Failed to create directory: {e}")
-        raise
-    
-    filename = "battery_health_report.png"
-    local_path = os.path.join(reports_dir, filename)
-    relative_path = f"battery-reports/{device_id}/{filename}"
-    
-    print(f"[DEBUG] Local file path: {local_path}")
-    print(f"[DEBUG] Buffer type: {type(buf)}")
-    print(f"[DEBUG] Buffer size before seek: {len(buf.getvalue())} bytes")
-    
-    try:
-        # Ensure buffer is at start position
+        # AWS S3 Configuration
+        S3_BUCKET = os.environ.get("S3_BUCKET", "battery-ml-results-test")
+        S3_REGION = os.environ.get("AWS_REGION", "us-east-1")
+        
+        # Initialize S3 client
+        s3_client = boto3.client('s3', region_name=S3_REGION)
+        
+        # Prepare file
         buf.seek(0)
-        buffer_content = buf.getvalue()
-        print(f"[DEBUG] Buffer size after getvalue: {len(buffer_content)} bytes")
+        filename = "battery_health_report.png"
+        s3_key = f"battery-reports/{device_id}/{filename}"
         
-        if len(buffer_content) == 0:
-            print(f"[WARN] Buffer is empty!")
+        print(f"[S3] Uploading to S3...")
+        print(f"  Bucket: {S3_BUCKET}")
+        print(f"  Region: {S3_REGION}")
+        print(f"  Key: {s3_key}")
+        print(f"  File size: {len(buf.getvalue())} bytes")
         
-        # Write buffer content to file
-        print(f"[DEBUG] Opening file for writing...")
-        with open(local_path, "wb") as f:
-            bytes_written = f.write(buffer_content)
-            print(f"[DEBUG] Bytes written: {bytes_written}")
+        # Upload to S3
+        s3_client.put_object(
+            Bucket=S3_BUCKET,
+            Key=s3_key,
+            Body=buf.getvalue(),
+            ContentType="image/png",
+        )
         
-        # Verify file was created
-        if os.path.exists(local_path):
-            file_size = os.path.getsize(local_path)
-            print(f"[OK] Report saved locally: {local_path}")
-            print(f"   File size: {file_size} bytes")
-            print(f"   Serve URL: http://localhost:3001/api/reports/{device_id}/battery_health_report.png\n")
-        else:
-            print(f"[ERROR] File was not created: {local_path}")
-            raise FileNotFoundError(f"Failed to create file: {local_path}")
+        print(f"[OK] Image uploaded to S3: s3://{S3_BUCKET}/{s3_key}")
         
-        # Return relative path for backend to construct URL
-        return relative_path, relative_path
+        # Return S3 path for backend to use
+        return s3_key, s3_key
+        
     except Exception as e:
-        print(f"[ERROR] Failed to save report locally: {e}")
+        print(f"[ERROR] Failed to upload to S3: {e}")
+        print(f"[WARN] Falling back to local storage")
         import traceback
         traceback.print_exc()
-        raise
+        
+        # Fallback: save locally
+        reports_dir = os.path.join(os.path.dirname(__file__), "reports", device_id)
+        try:
+            os.makedirs(reports_dir, exist_ok=True)
+            filename = "battery_health_report.png"
+            local_path = os.path.join(reports_dir, filename)
+            buf.seek(0)
+            with open(local_path, "wb") as f:
+                f.write(buf.getvalue())
+            relative_path = f"battery-reports/{device_id}/{filename}"
+            print(f"[OK] Saved locally to: {local_path}")
+            return relative_path, relative_path
+        except Exception as e2:
+            print(f"[ERROR] Fallback local save also failed: {e2}")
+            raise
 
 
 def build_cms_time_lapsed_url(evse_id: str, connector_id: int = 1, page: int = 1, limit: int = 100,
