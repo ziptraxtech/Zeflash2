@@ -10,11 +10,23 @@ const ML_BACKEND_URL =
     ? 'http://44.197.181.236:8000'  // ECS ML service endpoint (from env var)
     : 'http://127.0.0.1:8000');       // Local development
 
+// Backend API URL - for report URLs returned to frontend
+const BACKEND_API_URL = 
+  process.env.BACKEND_API_URL || 
+  (process.env.NODE_ENV === 'production'
+    ? 'http://3.90.162.23:3000'      // EC2 backend URL
+    : 'http://localhost:3001');       // Local development
+
 console.log(`[generateReport] ML Backend: ${ML_BACKEND_URL}`);
+console.log(`[generateReport] API Backend: ${BACKEND_API_URL}`);
 console.log(`[generateReport] NODE_ENV: ${process.env.NODE_ENV}`);
 console.log(`[generateReport] ML_BACKEND_URL env var: ${process.env.ML_BACKEND_URL || 'not set'}`);
+console.log(`[generateReport] BACKEND_API_URL env var: ${process.env.BACKEND_API_URL || 'not set'}`);
 if (!process.env.ML_BACKEND_URL) {
-  console.log(`[generateReport] Using default endpoint for NODE_ENV=${process.env.NODE_ENV || 'development'}`);
+  console.log(`[generateReport] Using default ML endpoint for NODE_ENV=${process.env.NODE_ENV || 'development'}`);
+}
+if (!process.env.BACKEND_API_URL) {
+  console.log(`[generateReport] Using default API endpoint for NODE_ENV=${process.env.NODE_ENV || 'development'}`);
 }
 
 /**
@@ -223,19 +235,19 @@ generateReportRouter.post('/', requireAuth, async (req: AuthRequest, res: Respon
       console.log(`  - s3_path from ML: ${result.s3_path}`);
       console.log(`========================================\n`);
 
-      // Construct localhost URL from result path
+      // Construct backend URL from result path
       let s3Url: string | undefined;
       if (result.s3_path) {
         const pathParts = result.s3_path.split('/');
         const deviceId = pathParts[1]; // Should be like "032300130C03074_1"
-        s3Url = `http://localhost:3001/api/reports/${deviceId}/battery_health_report.png`;
+        s3Url = `${BACKEND_API_URL}/api/reports/${deviceId}/battery_health_report.png`;
         console.log(`[generateReport] Report URL: ${s3Url}`);
       }
       
-      // FORCE localhost URL - ignore any AWS URLs from old data
+      // Fallback: use dynamic backend URL - ignore any AWS URLs from old data
       if (!s3Url || s3Url.includes('amazonaws')) {
-        s3Url = `http://localhost:3001/api/reports/${evse_id}_${connector_id}/battery_health_report.png`;
-        console.log(`[generateReport] ⚠️  Constructed fallback localhost URL: ${s3Url}`);
+        s3Url = `${BACKEND_API_URL}/api/reports/${evse_id}_${connector_id}/battery_health_report.png`;
+        console.log(`[generateReport] ⚠️  Constructed fallback URL: ${s3Url}`);
       }
 
       // Update report in database
