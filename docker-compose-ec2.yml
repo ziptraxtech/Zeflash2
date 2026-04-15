@@ -1,15 +1,44 @@
 version: '3.8'
 
 services:
+  zeflash-ml:
+    build:
+      context: .
+      dockerfile: battery-ml-lambda/Dockerfile
+    image: battery-ml:local
+    container_name: zeflash-ml
+    ports:
+      - "8000:8000"
+    environment:
+      - S3_BUCKET=${S3_BUCKET:-battery-ml-results-test}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   zeflash-backend:
     image: 070872471952.dkr.ecr.us-east-1.amazonaws.com/battery-ml:ec2-backend
     container_name: zeflash-backend
     ports:
       - "3000:3000"
+    depends_on:
+      - zeflash-ml
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - ML_BACKEND_URL=${ML_BACKEND_URL:-http://battery-ml-alb-1652817744.us-east-1.elb.amazonaws.com:8000}
+      - ML_BACKEND_URL=${ML_BACKEND_URL:-http://zeflash-ml:8000}
       - BACKEND_API_URL=${BACKEND_API_URL:-http://3.90.162.23:3000}
       - S3_BUCKET=${S3_BUCKET}
       - AWS_REGION=${AWS_REGION}
