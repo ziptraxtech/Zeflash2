@@ -15,8 +15,7 @@ services:
       - PYTHONUNBUFFERED=1
     restart: unless-stopped
     dns:
-      - 8.8.8.8
-      - 8.8.4.4
+      - 172.31.0.2
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
