@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '@clerk/clerk-react';
-import { API_URL } from '../config/api';
+import { API_URL, resolveReportImageUrl } from '../config/api';
 import CreditsWallet from './CreditsWallet';
 import Papa from 'papaparse';
 import {
@@ -395,27 +395,7 @@ const AIReport: React.FC = () => {
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {['battery_health_report', 'voltage_analysis', 'current_analysis', 'soc_analysis'].map((name) => {
-                      // Build image URL - handle both localhost full URLs and directory paths
-                      let imgUrl: string;
-                      if (s3Url.includes('http://') || s3Url.includes('https://')) {
-                        // Full URL - if it's already battery_health_report.png and we want that, use it; otherwise append
-                        if (s3Url.includes('battery_health_report.png')) {
-                          // Full URL to battery_health_report.png - only use for battery_health_report
-                          imgUrl = name === 'battery_health_report' ? s3Url : `${s3Url.replace('battery_health_report.png', '')}${name}.png`;
-                        } else {
-                          // Directory path - append filename
-                          imgUrl = `${s3Url}${s3Url.endsWith('/') ? '' : '/'}${name}.png`;
-                        }
-                      } else {
-                        // Relative path - convert to localhost
-                        if (s3Url.includes('battery_health_report.png')) {
-                          imgUrl = name === 'battery_health_report' ? 
-                            `http://localhost:3001/api/${s3Url}` : 
-                            `http://localhost:3001/api/${s3Url.replace('battery_health_report.png', '')}${name}.png`;
-                        } else {
-                          imgUrl = `http://localhost:3001/api/${s3Url}${s3Url.endsWith('/') ? '' : '/'}${name}.png`;
-                        }
-                      }
+                      const imgUrl = resolveReportImageUrl(s3Url, backendDeviceId, `${name}.png`);
                       
                       return (
                         <div key={name} className="rounded-lg overflow-hidden border border-blue-100 bg-white">

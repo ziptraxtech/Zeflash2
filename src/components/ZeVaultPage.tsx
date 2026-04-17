@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth, useUser } from '@clerk/clerk-react';
-import { API_URL } from '../config/api';
+import { API_URL, resolveReportImageUrl } from '../config/api';
 import { ArrowLeft, Zap, Loader2, Info, Clock, X } from 'lucide-react';
 
 interface PreviousTest {
@@ -13,31 +13,8 @@ interface PreviousTest {
   s3Url?: string | null;
 }
 
-const getDefaultAiImageUrl = (evseId: string, connector: number) =>
-  `https://battery-ml-results-test.s3.us-east-1.amazonaws.com/battery-reports/${evseId}_${connector}/battery_health_report.png`;
-
-const resolveAiImageUrl = (rawUrl: string | null | undefined, evseId: string, connector: number) => {
-  const fallback = getDefaultAiImageUrl(evseId, connector);
-  if (!rawUrl) return fallback;
-
-  try {
-    const parsed = new URL(rawUrl);
-    const host = parsed.host;
-    const cleanPath = parsed.pathname;
-
-    if (cleanPath.endsWith('.png')) {
-      return `${parsed.origin}${cleanPath}`;
-    }
-
-    if (cleanPath.endsWith('/')) {
-      return `${parsed.protocol}//${host}${cleanPath}battery_health_report.png`;
-    }
-
-    return `${parsed.protocol}//${host}${cleanPath}/battery_health_report.png`;
-  } catch {
-    return fallback;
-  }
-};
+const resolveAiImageUrl = (rawUrl: string | null | undefined, evseId: string, connector: number) =>
+  resolveReportImageUrl(rawUrl, `${evseId}_${connector}`);
 
 const ZeVaultPage: React.FC = () => {
   const navigate = useNavigate();

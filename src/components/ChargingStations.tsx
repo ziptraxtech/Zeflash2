@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { API_URL } from '../config/api';
+import { API_URL, resolveReportImageUrl } from '../config/api';
 import { Search, MapPin, ArrowLeft, BarChart3, Zap, CheckCircle, Users, X, Activity, Thermometer, RefreshCw, Download } from 'lucide-react';
 import Papa from 'papaparse';
 import html2canvas from 'html2canvas';
@@ -121,55 +121,10 @@ type PreviousTest = {
 };
 
 const getDefaultAiImageUrl = (evseId: string, connector: number) =>
-  `http://localhost:3001/api/reports/${evseId}_${connector}/battery_health_report.png`;
+  resolveReportImageUrl(null, `${evseId}_${connector}`);
 
-const resolveAiImageUrl = (rawUrl: string | null | undefined, evseId: string, connector: number) => {
-  const fallback = getDefaultAiImageUrl(evseId, connector);
-  if (!rawUrl) return fallback;
-
-  // Handle relative paths (e.g., "battery-reports/{device_id}/battery_health_report.png")
-  if (!rawUrl.startsWith('http://') && !rawUrl.startsWith('https://')) {
-    // Relative path - convert to localhost URL
-    const path = rawUrl.startsWith('/') ? rawUrl : `/${rawUrl}`;
-    
-    // If it's a battery-reports path, serve from localhost api endpoint
-    if (rawUrl.includes('battery-reports')) {
-      const deviceId = rawUrl.split('battery-reports/')[1]?.split('/')[0];
-      if (deviceId) {
-        return `http://localhost:3001/api/reports/${deviceId}/battery_health_report.png`;
-      }
-    }
-    
-    return `http://localhost:3001${path}`;
-  }
-
-  try {
-    const parsed = new URL(rawUrl);
-    const host = parsed.host;
-    const cleanPath = parsed.pathname;
-
-    // Force localhost for all reports
-    if (cleanPath.includes('battery-reports') || cleanPath.includes('battery_health_report')) {
-      // Extract device ID and rebuild with localhost
-      const match = cleanPath.match(/(?:battery-reports|reports)\/([^/]+)/);
-      if (match && match[1]) {
-        return `http://localhost:3001/api/reports/${match[1]}/battery_health_report.png`;
-      }
-    }
-
-    if (cleanPath.endsWith('.png')) {
-      return `${parsed.origin}${cleanPath}`;
-    }
-
-    if (cleanPath.endsWith('/')) {
-      return `${parsed.protocol}//${host}${cleanPath}battery_health_report.png`;
-    }
-
-    return `${parsed.protocol}//${host}${cleanPath}/battery_health_report.png`;
-  } catch {
-    return fallback;
-  }
-};
+const resolveAiImageUrl = (rawUrl: string | null | undefined, evseId: string, connector: number) =>
+  resolveReportImageUrl(rawUrl, `${evseId}_${connector}`);
 
 const ChargingStations: React.FC = () => {
   const { user, isLoaded } = useUser();
