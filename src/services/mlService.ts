@@ -2,9 +2,13 @@
  * ML Service - Frontend API client for Battery Health ML inference
  */
 
-// Use localhost:8000 for dev, /api/ml-proxy in Vercel production
+// Use environment variable or fallback
+// Dev: http://localhost:8000
+// Prod (Vercel): VITE_ML_API_URL env variable (ALB endpoint)
 const isDev = import.meta.env.DEV;
-const ML_API_URL = isDev ? 'http://localhost:8000' : '/api/ml-proxy';
+const ML_API_URL = isDev 
+  ? 'http://localhost:8000' 
+  : (import.meta.env.VITE_ML_API_URL || 'http://zeflash-ml-alb-2095066601.us-east-1.elb.amazonaws.com');
 
 export interface InferenceRequest {
   evse_id: string;
