@@ -3,7 +3,7 @@
 
 module.exports = async (req, res) => {
   try {
-    const BACKEND_URL = process.env.BACKEND_URL || 'http://3.90.162.23:3000';
+    const BACKEND_URL = process.env.BACKEND_URL || 'http://3.90.162.23:3001';
     
     // Get the path from the catch-all route
     let path = Array.isArray(req.query.path) ? req.query.path.join('/') : (req.query.path || '');
@@ -13,8 +13,19 @@ module.exports = async (req, res) => {
       path = path.substring(1);
     }
     
-    // Build the full URL, preserving query parameters
-    const queryString = new URLSearchParams(req.query).toString();
+    // Build query string, excluding the 'path' parameter
+    const queryParams = new URLSearchParams();
+    Object.entries(req.query).forEach(([key, value]) => {
+      if (key !== 'path') {
+        if (Array.isArray(value)) {
+          value.forEach(v => queryParams.append(key, v));
+        } else {
+          queryParams.append(key, value);
+        }
+      }
+    });
+    
+    const queryString = queryParams.toString();
     const url = queryString 
       ? `${BACKEND_URL}/${path}?${queryString}` 
       : `${BACKEND_URL}/${path}`;

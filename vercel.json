@@ -8,7 +8,7 @@
     }
   ],
   "env": {
-    "BACKEND_URL": "http://3.90.162.23:3000",
+    "BACKEND_URL": "http://3.90.162.23:3001",
     "ML_API_URL": "http://zeflash-ml-alb-2095066601.us-east-1.elb.amazonaws.com"
   },
   "headers": [

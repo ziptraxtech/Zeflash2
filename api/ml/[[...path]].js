@@ -13,8 +13,19 @@ module.exports = async (req, res) => {
       path = path.substring(1);
     }
     
-    // Build the full URL, preserving query parameters
-    const queryString = new URLSearchParams(req.query).toString();
+    // Build query string, excluding the 'path' parameter
+    const queryParams = new URLSearchParams();
+    Object.entries(req.query).forEach(([key, value]) => {
+      if (key !== 'path') {
+        if (Array.isArray(value)) {
+          value.forEach(v => queryParams.append(key, v));
+        } else {
+          queryParams.append(key, value);
+        }
+      }
+    });
+    
+    const queryString = queryParams.toString();
     const url = queryString 
       ? `${ML_URL}/${path}?${queryString}` 
       : `${ML_URL}/${path}`;
