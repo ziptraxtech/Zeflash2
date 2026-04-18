@@ -11,7 +11,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api/': {
-        target: 'http://battery-ml-alb-1652817744.us-east-1.elb.amazonaws.com',
+        target: 'http://zeflash-ml-alb-2095066601.us-east-1.elb.amazonaws.com',
         changeOrigin: true,
         secure: false,
         ws: true

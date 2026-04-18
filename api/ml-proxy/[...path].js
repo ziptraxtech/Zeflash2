@@ -4,7 +4,7 @@
 export default async function handler(req, res) {
   // Get backend URL from environment variable
   // Try ML_BACKEND_URL first (runtime), then VITE_ML_BACKEND_URL (build-time fallback)
-  const ML_BACKEND_URL = process.env.ML_BACKEND_URL || process.env.VITE_ML_BACKEND_URL || 'http://battery-ml-alb-1652817744.us-east-1.elb.amazonaws.com';
+  const ML_BACKEND_URL = process.env.ML_BACKEND_URL || process.env.VITE_ML_BACKEND_URL || 'http://zeflash-ml-alb-2095066601.us-east-1.elb.amazonaws.com';
   
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
