@@ -2,7 +2,7 @@
 // Forwards all /api/ml/* requests to ECS ALB
 // This prevents mixed content errors (HTTPS -> HTTP)
 
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
   const ML_URL = process.env.ML_API_URL || 'http://zeflash-ml-alb-2095066601.us-east-1.elb.amazonaws.com';
   
   // Get the path from the catch-all route
@@ -45,4 +45,4 @@ export default async function handler(req, res) {
       message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
-}
+};

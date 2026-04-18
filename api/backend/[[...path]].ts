@@ -2,7 +2,7 @@
 // Forwards all /api/backend/* requests to EC2 backend
 // This prevents mixed content errors (HTTPS -> HTTP)
 
-export default async function handler(req, res) {
+module.exports = async (req, res) => {
   const BACKEND_URL = process.env.BACKEND_URL || 'http://3.90.162.23:3000';
   
   // Get the path from the catch-all route
@@ -52,4 +52,4 @@ export default async function handler(req, res) {
       message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
-}
+};
