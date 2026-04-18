@@ -1,8 +1,9 @@
-// API configuration - uses the local backend in development and the Vercel proxy in production.
-const configuredApiUrl = import.meta.env.VITE_API_URL as string | undefined;
-const defaultApiUrl = import.meta.env.DEV ? 'http://localhost:3001' : '/api/backend';
-
-export const API_URL = (configuredApiUrl || defaultApiUrl).replace(/\/$/, '');
+// API Configuration
+// DEV: http://localhost:3000
+// PROD: Uses VITE_API_BASE from Vercel env, falls back to EC2 IP
+export const API_URL = import.meta.env.DEV 
+  ? 'http://localhost:3000' 
+  : (import.meta.env.VITE_API_BASE || 'http://3.90.162.23:3000');
 
 export const buildReportImageUrl = (
   deviceId: string,
