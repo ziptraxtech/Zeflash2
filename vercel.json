@@ -3,18 +3,14 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
-      "source": "/api/backend/:path*",
-      "destination": "/api/proxy"
-    },
-    {
-      "source": "/api/ml-proxy/:path*",
-      "destination": "/api/ml-proxy"
-    },
-    {
       "source": "/((?!api).*)",
       "destination": "/index.html"
     }
   ],
+  "env": {
+    "BACKEND_URL": "http://3.90.162.23:3000",
+    "ML_API_URL": "http://zeflash-ml-alb-2095066601.us-east-1.elb.amazonaws.com"
+  },
   "headers": [
     {
       "source": "/api/(.*)",
