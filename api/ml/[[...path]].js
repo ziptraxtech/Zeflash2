@@ -5,30 +5,25 @@ module.exports = async (req, res) => {
   try {
     const ML_URL = process.env.ML_API_URL || 'http://zeflash-ml-alb-2095066601.us-east-1.elb.amazonaws.com';
     
-    // Get the path from the catch-all route
-    let path = Array.isArray(req.query.path) ? req.query.path.join('/') : (req.query.path || '');
+    // Extract path from URL pathname
+    // req.url format: /api/ml/inference?param=value
+    // We need to get just: /inference
+    let path = req.url || '';
     
-    // Remove leading slash if present
-    if (path.startsWith('/')) {
-      path = path.substring(1);
+    // Remove the /api/ml prefix
+    if (path.startsWith('/api/ml/')) {
+      path = path.substring('/api/ml'.length);
+    } else if (path.startsWith('/api/ml')) {
+      path = path.substring('/api/ml'.length) || '/';
     }
     
-    // Build query string, excluding the 'path' parameter
-    const queryParams = new URLSearchParams();
-    Object.entries(req.query).forEach(([key, value]) => {
-      if (key !== 'path') {
-        if (Array.isArray(value)) {
-          value.forEach(v => queryParams.append(key, v));
-        } else {
-          queryParams.append(key, value);
-        }
-      }
-    });
+    // Remove query string if present
+    const [pathOnly, queryString] = path.split('?');
     
-    const queryString = queryParams.toString();
+    // Build the full URL
     const url = queryString 
-      ? `${ML_URL}/${path}?${queryString}` 
-      : `${ML_URL}/${path}`;
+      ? `${ML_URL}${pathOnly}?${queryString}` 
+      : `${ML_URL}${pathOnly}`;
     
     console.log(`[ML Proxy] ${req.method} ${url}`);
     

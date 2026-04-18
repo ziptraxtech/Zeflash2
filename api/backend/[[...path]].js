@@ -5,30 +5,25 @@ module.exports = async (req, res) => {
   try {
     const BACKEND_URL = process.env.BACKEND_URL || 'http://3.90.162.23:3001';
     
-    // Get the path from the catch-all route
-    let path = Array.isArray(req.query.path) ? req.query.path.join('/') : (req.query.path || '');
+    // Extract path from URL pathname
+    // req.url format: /api/backend/credits?param=value
+    // We need to get just: /credits
+    let path = req.url || '';
     
-    // Remove leading slash if present
-    if (path.startsWith('/')) {
-      path = path.substring(1);
+    // Remove the /api/backend prefix
+    if (path.startsWith('/api/backend/')) {
+      path = path.substring('/api/backend'.length);
+    } else if (path.startsWith('/api/backend')) {
+      path = path.substring('/api/backend'.length) || '/';
     }
     
-    // Build query string, excluding the 'path' parameter
-    const queryParams = new URLSearchParams();
-    Object.entries(req.query).forEach(([key, value]) => {
-      if (key !== 'path') {
-        if (Array.isArray(value)) {
-          value.forEach(v => queryParams.append(key, v));
-        } else {
-          queryParams.append(key, value);
-        }
-      }
-    });
+    // Remove query string if present
+    const [pathOnly, queryString] = path.split('?');
     
-    const queryString = queryParams.toString();
+    // Build the full URL
     const url = queryString 
-      ? `${BACKEND_URL}/${path}?${queryString}` 
-      : `${BACKEND_URL}/${path}`;
+      ? `${BACKEND_URL}${pathOnly}?${queryString}` 
+      : `${BACKEND_URL}${pathOnly}`;
     
     console.log(`[Backend Proxy] ${req.method} ${url}`);
     
