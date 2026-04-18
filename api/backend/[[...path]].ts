@@ -1,39 +1,46 @@
 // Vercel API Proxy for Backend
 // Forwards all /api/backend/* requests to EC2 backend
-// This prevents mixed content errors (HTTPS -> HTTP)
 
 module.exports = async (req, res) => {
-  const BACKEND_URL = process.env.BACKEND_URL || 'http://3.90.162.23:3000';
-  
-  // Get the path from the catch-all route
-  const path = Array.isArray(req.query.path) ? req.query.path.join('/') : (req.query.path || '');
-  
-  // Build the full URL to the backend
-  const url = `${BACKEND_URL}/${path}`;
-  
-  console.log(`[Proxy] ${req.method} ${url}`);
-  
   try {
-    // Forward the request to the backend
+    const BACKEND_URL = process.env.BACKEND_URL || 'http://3.90.162.23:3000';
+    
+    // Get the path from the catch-all route
+    let path = Array.isArray(req.query.path) ? req.query.path.join('/') : (req.query.path || '');
+    
+    // Remove leading slash if present
+    if (path.startsWith('/')) {
+      path = path.substring(1);
+    }
+    
+    // Build the full URL, preserving query parameters
+    const queryString = new URLSearchParams(req.query).toString();
+    const url = queryString 
+      ? `${BACKEND_URL}/${path}?${queryString}` 
+      : `${BACKEND_URL}/${path}`;
+    
+    console.log(`[Backend Proxy] ${req.method} ${url}`);
+    
+    // Prepare request body
+    let body;
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+    }
+    
+    // Forward request to backend
     const response = await fetch(url, {
       method: req.method,
       headers: {
         'Content-Type': 'application/json',
-        // Forward auth headers if present
-        ...(req.headers.authorization && {
-          'Authorization': req.headers.authorization
-        }),
-        // Forward other important headers
         ...Object.keys(req.headers)
-          .filter(key => !['host', 'connection'].includes(key))
+          .filter(key => !['host', 'connection', 'content-length'].includes(key.toLowerCase()))
           .reduce((acc, key) => {
             acc[key] = req.headers[key];
             return acc;
           }, {})
       },
-      body: req.method !== 'GET' && req.method !== 'HEAD' 
-        ? JSON.stringify(req.body) 
-        : undefined,
+      body: body,
+      timeout: 30000
     });
 
     const contentType = response.headers.get('content-type');
@@ -46,10 +53,11 @@ module.exports = async (req, res) => {
       data
     });
   } catch (error) {
-    console.error(`[Proxy Error] ${error}`);
+    console.error(`[Backend Proxy Error]`, error);
     res.status(502).json({
-      error: 'Failed to reach backend server',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      error: 'Backend service unavailable',
+      message: error instanceof Error ? error.message : 'Unknown error',
+      details: process.env.NODE_ENV === 'development' ? String(error) : undefined
     });
   }
 };
