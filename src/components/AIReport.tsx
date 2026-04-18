@@ -286,7 +286,7 @@ const AIReport: React.FC = () => {
         heightLeft -= pageHeight;
       }
 
-      const name = `AI_Battery_Report_${backendDeviceId}_${new Date().toISOString().slice(0, 10)}.pdf`;
+      const name = `Zeflash_AI_Report_${backendDeviceId}_${new Date().toISOString().slice(0, 10)}.pdf`;
       pdf.save(name);
     } catch (error) {
       console.error(error);
