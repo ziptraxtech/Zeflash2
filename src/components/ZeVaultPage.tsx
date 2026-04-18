@@ -219,7 +219,7 @@ const ZeVaultPage: React.FC = () => {
               {previousTests.map((test) => {
                 const deviceId = `${test.evseId}_${test.connector}`;
                 const imgUrl = `${resolveAiImageUrl(test.s3Url ?? null, test.evseId, test.connector)}?t=${Date.now()}`;
-                const [imageError, setImageError] = useState(false);
+                
                 
                 return (
                   <button

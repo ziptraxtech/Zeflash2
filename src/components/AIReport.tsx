@@ -395,31 +395,7 @@ const AIReport: React.FC = () => {
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {['battery_health_report', 'voltage_analysis', 'current_analysis', 'soc_analysis'].map((name) => {
-<<<<<<< Updated upstream
                       const imgUrl = resolveReportImageUrl(s3Url, backendDeviceId, `${name}.png`);
-=======
-                      // Build image URL - handle both localhost full URLs and directory paths
-                      let imgUrl: string;
-                      if (s3Url.includes('http://') || s3Url.includes('https://')) {
-                        // Full URL - if it's already battery_health_report.png and we want that, use it; otherwise append
-                        if (s3Url.includes('battery_health_report.png')) {
-                          // Full URL to battery_health_report.png - only use for battery_health_report
-                          imgUrl = name === 'battery_health_report' ? s3Url : `${s3Url.replace('battery_health_report.png', '')}${name}.png`;
-                        } else {
-                          // Directory path - append filename
-                          imgUrl = `${s3Url}${s3Url.endsWith('/') ? '' : '/'}${name}.png`;
-                        }
-                      } else {
-                        // Relative path - convert to localhost
-                        if (s3Url.includes('battery_health_report.png')) {
-                          imgUrl = name === 'battery_health_report' ? 
-                            `${API_URL}/api/${s3Url}` : 
-                            `${API_URL}/api/${s3Url.replace('battery_health_report.png', '')}${name}.png`;
-                        } else {
-                          imgUrl = `${API_URL}/api/${s3Url}${s3Url.endsWith('/') ? '' : '/'}${name}.png`;
-                        }
-                      }
->>>>>>> Stashed changes
                       
                       return (
                         <div key={name} className="rounded-lg overflow-hidden border border-blue-100 bg-white">
