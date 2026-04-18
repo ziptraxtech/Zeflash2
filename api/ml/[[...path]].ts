@@ -2,16 +2,11 @@
 // Forwards all /api/ml/* requests to ECS ALB
 // This prevents mixed content errors (HTTPS -> HTTP)
 
-import { VercelRequest, VercelResponse } from '@vercel/node';
-
-const ML_URL = process.env.ML_API_URL || 'http://zeflash-ml-alb-2095066601.us-east-1.elb.amazonaws.com';
-
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
+export default async function handler(req, res) {
+  const ML_URL = process.env.ML_API_URL || 'http://zeflash-ml-alb-2095066601.us-east-1.elb.amazonaws.com';
+  
   // Get the path from the catch-all route
-  const path = (req.query.path as string[])?.join('/') || '';
+  const path = Array.isArray(req.query.path) ? req.query.path.join('/') : (req.query.path || '');
   
   // Build the full URL to the ML backend
   const url = `${ML_URL}/${path}`;

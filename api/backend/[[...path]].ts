@@ -2,16 +2,11 @@
 // Forwards all /api/backend/* requests to EC2 backend
 // This prevents mixed content errors (HTTPS -> HTTP)
 
-import { VercelRequest, VercelResponse } from '@vercel/node';
-
-const BACKEND_URL = process.env.BACKEND_URL || 'http://3.90.162.23:3000';
-
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
+export default async function handler(req, res) {
+  const BACKEND_URL = process.env.BACKEND_URL || 'http://3.90.162.23:3000';
+  
   // Get the path from the catch-all route
-  const path = (req.query.path as string[])?.join('/') || '';
+  const path = Array.isArray(req.query.path) ? req.query.path.join('/') : (req.query.path || '');
   
   // Build the full URL to the backend
   const url = `${BACKEND_URL}/${path}`;
