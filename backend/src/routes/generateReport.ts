@@ -7,14 +7,14 @@ import { prisma } from '../lib/prisma';
 const ML_BACKEND_URL = 
   process.env.ML_BACKEND_URL || 
   (process.env.NODE_ENV === 'production' 
-    ? 'http://zeflash-ml-alb-2095066601.us-east-1.elb.amazonaws.com:8000'  // ECS ML ALB endpoint
+    ? 'http://zeflash-ml-alb-2095066601.us-east-1.elb.amazonaws.com'  // ECS ML ALB endpoint (listens on port 80)
     : 'http://127.0.0.1:8000');       // Local development
 
 // Backend API URL - for report URLs returned to frontend
 const BACKEND_API_URL = 
   process.env.BACKEND_API_URL || 
   (process.env.NODE_ENV === 'production'
-    ? 'http://3.90.162.23:3000'      // EC2 backend URL
+    ? 'http://3.90.162.23:3001'      // EC2 backend URL
     : 'http://localhost:3001');       // Local development
 
 console.log(`[generateReport] ML Backend: ${ML_BACKEND_URL}`);
