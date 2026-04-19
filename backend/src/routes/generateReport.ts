@@ -14,8 +14,8 @@ const ML_BACKEND_URL =
 const BACKEND_API_URL = 
   process.env.BACKEND_API_URL || 
   (process.env.NODE_ENV === 'production'
-    ? 'http://3.90.162.23:3001'      // EC2 backend URL
-    : 'http://localhost:3001');       // Local development
+    ? 'http://zeflash-ml-alb-2095066601.us-east-1.elb.amazonaws.com'  // ALB endpoint (port 80)
+    : 'http://localhost:3000');       // Local development
 
 console.log(`[generateReport] ML Backend: ${ML_BACKEND_URL}`);
 console.log(`[generateReport] API Backend: ${BACKEND_API_URL}`);

@@ -12,7 +12,7 @@ import { reportsRouter } from './routes/reports';
 import inferenceResultsRouter from './routes/inferenceResults';
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 
 const S3_BUCKET = process.env.S3_BUCKET || 'battery-ml-results-test';
 const ALLOWED_REPORT_FILES = new Set([
