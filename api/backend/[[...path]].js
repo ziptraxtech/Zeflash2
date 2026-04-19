@@ -1,5 +1,6 @@
 // Vercel API Proxy for Backend
 // Forwards all /api/backend/* requests to EC2 backend
+// ML inference runs on ECS, backend services on EC2
 
 module.exports = async (req, res) => {
   try {
@@ -17,7 +18,7 @@ module.exports = async (req, res) => {
       path = path.substring('/api/backend'.length) || '/';
     }
     
-    // Remove query string if present
+    // Remove query string if present (we'll add it back to the full URL)
     const [pathOnly, queryString] = path.split('?');
     
     // Build the full URL
@@ -26,38 +27,54 @@ module.exports = async (req, res) => {
       : `${BACKEND_URL}${pathOnly}`;
     
     console.log(`[Backend Proxy] ${req.method} ${url}`);
+    console.log(`[Backend Proxy] Request body:`, JSON.stringify(req.body));
+    
+    // Prepare request headers - preserve Authorization and Content-Type
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+    
+    // Copy over important headers from the original request
+    if (req.headers.authorization) {
+      headers.authorization = req.headers.authorization;
+    }
+    if (req.headers['x-forwarded-for']) {
+      headers['x-forwarded-for'] = req.headers['x-forwarded-for'];
+    }
     
     // Prepare request body
     let body;
     if (req.method !== 'GET' && req.method !== 'HEAD') {
+      // Handle both string and object bodies
       body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+      console.log(`[Backend Proxy] Forwarding body: ${body}`);
     }
     
     // Forward request to backend
     const response = await fetch(url, {
       method: req.method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...Object.keys(req.headers)
-          .filter(key => !['host', 'connection', 'content-length'].includes(key.toLowerCase()))
-          .reduce((acc, key) => {
-            acc[key] = req.headers[key];
-            return acc;
-          }, {})
-      },
+      headers: headers,
       body: body,
       timeout: 30000
     });
 
     const contentType = response.headers.get('content-type');
-    const data = contentType?.includes('application/json')
-      ? await response.json()
-      : await response.text();
+    let responseData;
+    
+    if (contentType?.includes('application/json')) {
+      responseData = await response.json();
+    } else {
+      responseData = await response.text();
+    }
 
-    res.status(response.status).json({
-      status: response.status,
-      data
-    });
+    // Pass through status and data as-is (no wrapping)
+    res.status(response.status);
+    
+    if (typeof responseData === 'string') {
+      res.send(responseData);
+    } else {
+      res.json(responseData);
+    }
   } catch (error) {
     console.error(`[Backend Proxy Error]`, error);
     res.status(502).json({
