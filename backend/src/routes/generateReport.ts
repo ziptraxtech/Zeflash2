@@ -235,19 +235,22 @@ generateReportRouter.post('/', requireAuth, async (req: AuthRequest, res: Respon
       console.log(`  - s3_path from ML: ${result.s3_path}`);
       console.log(`========================================\n`);
 
-      // Construct backend URL from result path
+      // Construct report URL - return RELATIVE path for Vercel proxy
+      // Frontend will add its own API_URL prefix (/api/backend in production)
       let s3Url: string | undefined;
       if (result.s3_path) {
         const pathParts = result.s3_path.split('/');
         const deviceId = pathParts[1]; // Should be like "032300130C03074_1"
-        s3Url = `${BACKEND_API_URL}/api/reports/${deviceId}/battery_health_report.png`;
-        console.log(`[generateReport] Report URL: ${s3Url}`);
+        // Return relative URL to avoid double /api/backend prefix through Vercel proxy
+        s3Url = `/api/reports/${deviceId}/battery_health_report.png`;
+        console.log(`[generateReport] Report URL (relative): ${s3Url}`);
       }
       
       // Fallback: use dynamic backend URL - ignore any AWS URLs from old data
       if (!s3Url || s3Url.includes('amazonaws')) {
-        s3Url = `${BACKEND_API_URL}/api/reports/${evse_id}_${connector_id}/battery_health_report.png`;
-        console.log(`[generateReport] ⚠️  Constructed fallback URL: ${s3Url}`);
+        // Also return relative URL for fallback
+        s3Url = `/api/reports/${evse_id}_${connector_id}/battery_health_report.png`;
+        console.log(`[generateReport] ⚠️  Constructed fallback URL (relative): ${s3Url}`);
       }
 
       // Update report in database
