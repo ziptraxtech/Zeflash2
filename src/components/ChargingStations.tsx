@@ -1670,7 +1670,7 @@ const ChargingStations: React.FC = () => {
                         pdf.text(footerText, margin, pageHeight - 4);
                       }
 
-                      pdf.save(`charger_report_${reportModal.evseId}_${reportModal.connectorId}_${new Date().toISOString().slice(0, 10)}.pdf`);
+                      pdf.save(`Zeflash_Battery_Report_${reportModal.evseId}_${reportModal.connectorId}_${new Date().toISOString().slice(0, 10)}.pdf`);
                     } catch (error) {
                       console.error('Error generating PDF:', error);
                       alert('Failed to generate PDF. Please try again.');
