@@ -77,7 +77,7 @@ app.get('/health/ml', async (_req, res) => {
   }
 });
 
-// Serve report images from the public S3 bucket
+// Redirect to S3 for report images
 app.get('/api/reports/:deviceId/:filename', async (req: Request, res: Response) => {
   try {
     const deviceId = Array.isArray(req.params.deviceId) ? req.params.deviceId[0] : req.params.deviceId;
@@ -90,7 +90,7 @@ app.get('/api/reports/:deviceId/:filename', async (req: Request, res: Response) 
     const s3Key = `battery-reports/${deviceId}/${filename}`;
     const publicUrl = `https://${S3_BUCKET}.s3.us-east-1.amazonaws.com/${s3Key}`;
 
-    console.log(`[API] Redirecting report image to ${publicUrl}`);
+    console.log(`[API] Redirecting report image to S3: ${publicUrl}`);
     return res.redirect(publicUrl);
   } catch (error: any) {
     console.error('[API] Report image redirect error:', error);
