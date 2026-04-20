@@ -235,22 +235,23 @@ generateReportRouter.post('/', requireAuth, async (req: AuthRequest, res: Respon
       console.log(`  - s3_path from ML: ${result.s3_path}`);
       console.log(`========================================\n`);
 
-      // Construct report URL - return relative path that INCLUDES /api prefix
-      // Backend endpoint is at /api/reports/:deviceId/:filename
-      // Vercel proxy will forward /api/backend/api/reports/... → /api/reports/...
+      // Construct report URL - return public S3 URL directly
+      // This avoids proxy routing issues and gives frontend direct access
       let s3Url: string | undefined;
       if (result.s3_path) {
-        const pathParts = result.s3_path.split('/');
-        const deviceId = pathParts[1]; // Should be like "032300130C03074_1"
-        // Return relative URL with /api prefix - frontend will combine with /api/backend
-        s3Url = `/api/reports/${deviceId}/battery_health_report.png`;
-        console.log(`[generateReport] Report URL (relative with /api): ${s3Url}`);
+        // s3_path is like "battery-reports/{device_id}/battery_health_report.png"
+        const s3Bucket = 'battery-ml-results-test';
+        const s3Region = 'us-east-1';
+        s3Url = `https://${s3Bucket}.s3.${s3Region}.amazonaws.com/${result.s3_path}`;
+        console.log(`[generateReport] Report S3 URL: ${s3Url}`);
       }
       
-      // Fallback: use relative URL with /api prefix
-      if (!s3Url || s3Url.includes('amazonaws')) {
-        s3Url = `/api/reports/${evse_id}_${connector_id}/battery_health_report.png`;
-        console.log(`[generateReport] ⚠️  Constructed fallback URL (relative with /api): ${s3Url}`);
+      // Fallback: construct S3 URL if we have device ID
+      if (!s3Url) {
+        const s3Bucket = 'battery-ml-results-test';
+        const s3Region = 'us-east-1';
+        s3Url = `https://${s3Bucket}.s3.${s3Region}.amazonaws.com/battery-reports/${evse_id}_${connector_id}/battery_health_report.png`;
+        console.log(`[generateReport] ⚠️  Constructed fallback S3 URL: ${s3Url}`);
       }
 
       // Update report in database
