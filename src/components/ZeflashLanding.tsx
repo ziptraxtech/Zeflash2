@@ -179,7 +179,7 @@ const ZeflashLanding: React.FC = () => {
                   Quick Access
                 </div>
                 <img 
-                  src="/My_QR_Code_1-1024.jpeg" 
+                  src="/QR zeflash.jpeg" 
                   alt="Scan QR Code to Download Zeflash App" 
                   className="w-44 h-44 sm:w-52 sm:h-52 object-contain rounded-lg"
                 />
