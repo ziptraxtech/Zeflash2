@@ -95,11 +95,76 @@ const AIReportCheckout: React.FC = () => {
       name: 'Zeflash AI Report',
       description: `Unlock AI insights for ${deviceLabel}`,
       order_id: orderData.orderId,
-      handler: () => {
-        setStatus('success');
-        navigate(`/report/${deviceId}/ai`, {
-          replace: true,
-          state: { fromCheckout: true, orderId: orderData.orderId },
+      handler: (response) => {
+        void (async () => {
+          // Force a fresh token — bypasses cache which may be stale after the
+          // user spends time in the Razorpay modal / external UPI app.
+          let confirmToken = await getToken({ skipCache: true });
+
+          // If the force-refresh fails, fall back to a cached token once.
+          if (!confirmToken) {
+            confirmToken = await getToken();
+          }
+
+          if (!confirmToken) {
+            throw new Error('Session expired while confirming payment. Please sign in again.');
+          }
+
+          let confirmResponse = await fetch(`${API_URL}/confirm-payment`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${confirmToken}`
+            },
+            body: JSON.stringify(response)
+          });
+
+          // If auth fails (401 invalid/expired token), do one retry with a
+          // brand-new token fetch before giving up.
+          if (confirmResponse.status === 401) {
+            const retryToken = await getToken({ skipCache: true });
+            if (retryToken) {
+              confirmResponse = await fetch(`${API_URL}/confirm-payment`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${retryToken}`
+                },
+                body: JSON.stringify(response)
+              });
+            }
+          }
+
+          const confirmText = await confirmResponse.text();
+          let confirmPayload: any = {};
+          if (confirmText) {
+            try {
+              confirmPayload = JSON.parse(confirmText);
+            } catch {
+              confirmPayload = { error: 'Server returned a non-JSON error while confirming payment.' };
+            }
+          }
+
+          if (!confirmResponse.ok) {
+            throw new Error(confirmPayload.error || 'Payment captured but credit update failed');
+          }
+
+          setStatus('success');
+          navigate(`/report/${deviceId}/ai`, {
+            replace: true,
+            state: { fromCheckout: true, creditsAdded: confirmPayload.creditsAdded }
+          });
+        })().catch((confirmError: any) => {
+          console.error('Payment confirmation error:', confirmError);
+          const isPending = confirmError.message?.toLowerCase().includes('token') ||
+            confirmError.message?.toLowerCase().includes('auth') ||
+            confirmError.message?.toLowerCase().includes('session');
+          setErrorMessage(
+            isPending
+              ? 'Payment successful! Your credits are being processed. Please refresh to proceed.'
+              : confirmError.message || 'Payment succeeded but credits are pending. Please refresh in 30 seconds.'
+          );
+          setStatus('error');
         });
       },
       prefill: { name: 'Zeflash Customer' },
