@@ -299,7 +299,21 @@ generateReportRouter.post('/', requireAuth, async (req: AuthRequest, res: Respon
         data: { status: 'failed' },
       }).catch(() => {});
 
-      return res.status(502).json({
+      // Check if error is due to insufficient data vs actual server failure
+      const errorMsg = err.message || '';
+      const isDataError = errorMsg.includes('No charging') || 
+                          errorMsg.includes('no data') ||
+                          errorMsg.includes('Could not extract');
+      
+      if (isDataError) {
+        return res.status(422).json({
+          error: 'Unable to generate report: No recent charging data available for this EVSE.',
+          detail: 'The charger must have recent charging sessions to analyze.',
+          reportId: report.id,
+        });
+      }
+      
+      return res.status(500).json({
         error: 'Report generation failed. Contact support for a credit refund.',
         detail: err.message,
         reportId: report.id,
