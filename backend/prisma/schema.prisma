@@ -50,6 +50,7 @@ model Payment {
   amount              Int
   credits             Int
   status              String    @default("created")
+  couponCode          String?   // Stores coupon code if payment was made using a discount coupon
   processedAt         DateTime?
   createdAt           DateTime  @default(now())
 
@@ -66,6 +67,7 @@ model Report {
   anomalies Json?    // {"critical": 0, "high": 2, "medium": 0, "low": 10}
   totalSamples Int?
   totalAnomalies Int?
+  couponCode String?  // Stores coupon code if report was generated using a free coupon
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

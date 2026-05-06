@@ -152,7 +152,7 @@ const AIReportCheckout: React.FC = () => {
           setStatus('success');
           navigate(`/report/${deviceId}/ai`, {
             replace: true,
-            state: { fromCheckout: true, creditsAdded: confirmPayload.creditsAdded }
+            state: { fromCheckout: true, orderId: orderData.orderId, paid_for_report: true, creditsAdded: confirmPayload.creditsAdded }
           });
         })().catch((confirmError: any) => {
           console.error('Payment confirmation error:', confirmError);

@@ -159,12 +159,13 @@ export const generateReportRouter = Router();
  */
 generateReportRouter.post('/', requireAuth, async (req: AuthRequest, res: Response) => {
   try {
-    const { evse_id, connector_id, email, coupon_code, station_name } = req.body as {
+    const { evse_id, connector_id, email, coupon_code, station_name, paid_for_report } = req.body as {
       evse_id: string;
       connector_id: number;
       email?: string;
       coupon_code?: string;
       station_name?: string;
+      paid_for_report?: boolean;
     };
 
     // Validate input
@@ -183,8 +184,8 @@ generateReportRouter.post('/', requireAuth, async (req: AuthRequest, res: Respon
     // Check if using a valid coupon (skips credit requirement)
     const coupon = validateCoupon(coupon_code);
     
-    // Check credits (skip if using valid coupon)
-    if (!coupon.isFree) {
+    // Check credits (skip if using valid coupon OR if report was paid for via Razorpay)
+    if (!coupon.isFree && !paid_for_report) {
       const credits = await prisma.credit.findUnique({ where: { userId: user.id } });
       if (!credits || credits.remaining < 1) {
         return res.status(402).json({
@@ -197,11 +198,15 @@ generateReportRouter.post('/', requireAuth, async (req: AuthRequest, res: Respon
     // Deduct credit and create report record
     let report: { id: string };
     try {
-      // Only deduct credit if not using a valid free coupon
-      if (!coupon.isFree) {
+      // Only deduct credit if:
+      // - NOT using a valid free coupon
+      // - AND NOT paid for via Razorpay
+      if (!coupon.isFree && !paid_for_report) {
         await deductCredit(user.id, `Report for ${evse_id} connector ${connector_id}`);
-      } else {
+      } else if (coupon.isFree) {
         console.log(`[generateReport] ✅ Using free coupon: ${coupon_code}`);
+      } else if (paid_for_report) {
+        console.log(`[generateReport] ✅ Report paid for via Razorpay - skipping credit deduction`);
       }
       
       report = await prisma.report.create({
@@ -210,9 +215,10 @@ generateReportRouter.post('/', requireAuth, async (req: AuthRequest, res: Respon
           evseId: evse_id,
           connector: connector_id,
           status: 'processing',
+          ...(coupon_code && { couponCode: coupon_code }),
         },
       });
-      console.log(`[generateReport] Created report: ${report.id}`);
+      console.log(`[generateReport] Created report: ${report.id}${coupon_code ? ` (Coupon: ${coupon_code})` : ''}`);
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }

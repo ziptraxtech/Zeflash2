@@ -7,12 +7,13 @@ import { prisma } from '../lib/prisma';
 export const createOrderRouter = Router();
 
 createOrderRouter.post('/', requireAuth, async (req: AuthRequest, res: Response) => {
-  const { credits, email, planName, months, isCustom } = req.body as { 
+  const { credits, email, planName, months, isCustom, couponCode } = req.body as { 
     credits: number; 
     email?: string;
     planName?: string;
     months?: number;
     isCustom?: boolean;
+    couponCode?: string;
   };
 
   if (!credits || credits < 1) {
@@ -42,7 +43,8 @@ createOrderRouter.post('/', requireAuth, async (req: AuthRequest, res: Response)
         clerkUserId: req.clerkUserId!, 
         credits: String(credits),
         planName: planName || 'custom',
-        months: months ? String(months) : '0'
+        months: months ? String(months) : '0',
+        ...(couponCode && { couponCode })
       },
     });
 
@@ -53,6 +55,7 @@ createOrderRouter.post('/', requireAuth, async (req: AuthRequest, res: Response)
         amount: amountPaise,
         credits,
         status: 'created',
+        ...(couponCode && { couponCode }),
       },
     });
 

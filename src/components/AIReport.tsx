@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useLocation } from 'react-router-dom';
 import { useAuth } from '@clerk/clerk-react';
 import { API_URL, resolveReportImageUrl } from '../config/api';
 import CreditsWallet from './CreditsWallet';
@@ -40,7 +40,9 @@ const severityColor = (status: string) => {
 const AIReport: React.FC = () => {
   const { deviceId } = useParams<{ deviceId: string }>();
   const { getToken } = useAuth();
+  const location = useLocation();
   const reportRef = useRef<HTMLDivElement | null>(null);
+  const paidForReport = (location.state as any)?.paid_for_report ?? false;
 
   // Parse evseId and connectorId from deviceId (format: evseId_connectorId)
   const [evseId, connectorId] = useMemo(() => {
@@ -116,7 +118,7 @@ const AIReport: React.FC = () => {
         const res = await fetch(`${API_URL}/generate-report`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: authHeader },
-          body: JSON.stringify({ evse_id: evseId, connector_id: connectorId }),
+          body: JSON.stringify({ evse_id: evseId, connector_id: connectorId, paid_for_report: paidForReport }),
         });
 
         if (res.status === 402) {
@@ -125,7 +127,7 @@ const AIReport: React.FC = () => {
           const retry = await fetch(`${API_URL}/generate-report`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: authHeader },
-            body: JSON.stringify({ evse_id: evseId, connector_id: connectorId }),
+            body: JSON.stringify({ evse_id: evseId, connector_id: connectorId, paid_for_report: paidForReport }),
           });
           if (!retry.ok) {
             const e = await retry.json().catch(() => ({}));
