@@ -343,14 +343,46 @@ const ChargingStations: React.FC = () => {
         return;
       }
 
+      // After payment succeeds, generate report with paid_for_report flag
       setReportModal((prev) => ({ ...prev, paymentPending: false, aiLoading: true, aiError: '', aiImageUrl: '' }));
-      proceedWithAIReport(evseId, deviceId, undefined, stationName);
+      const connectorId = reportModal.connectorId || 1;
+      
+      const response = await fetch(`${API_URL}/generate-report`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          evse_id: evseId, 
+          connector_id: connectorId, 
+          paid_for_report: true,
+          station_name: stationName 
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || `Generation failed: ${response.status}`);
+      }
+
+      const reportData = await response.json();
+      const fallbackImageUrl = getDefaultAiImageUrl(evseId, connectorId);
+      const resolvedUrl = resolveAiImageUrl(reportData.s3Url || fallbackImageUrl, evseId, connectorId);
+
+      setReportModal((prev) => ({
+        ...prev,
+        aiImageUrl: `${resolvedUrl}${resolvedUrl.includes('?') ? '&' : '?'}t=${Date.now()}`,
+        aiLoading: false,
+        aiError: '',
+        aiReportData: reportData,
+      }));
     } catch (error) {
       console.error('Payment error:', error);
       setReportModal((prev) => ({
         ...prev,
         paymentPending: false,
-        paymentError: 'Failed to initiate payment. Please try again.'
+        aiLoading: false,
+        paymentError: 'Failed to generate report after payment. Please try again.'
       }));
     }
   };
@@ -359,18 +391,14 @@ const ChargingStations: React.FC = () => {
   const proceedWithAIReport = async (evseId: string, _deviceId: string, couponCode?: string, stationName?: string) => {
     try {
       const connectorId = reportModal.connectorId || 1;
-      const token = await getToken();
+      const token = await getToken().catch(() => null);
       
-      if (!token) {
-        throw new Error('Please sign in to generate reports');
-      }
-      
-      // Call backend /generate-report endpoint which handles everything (inference + ML metrics)
+      // For signed-in users, include token; for unauthenticated users, skip token (but this path is only for signed-in)
       const response = await fetch(`${API_URL}/generate-report`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          ...(token && { 'Authorization': `Bearer ${token}` }),
         },
         body: JSON.stringify({ evse_id: evseId, connector_id: connectorId, coupon_code: couponCode, station_name: stationName }),
       });
@@ -424,8 +452,16 @@ const ChargingStations: React.FC = () => {
     }
   };
 
-  // New simplified fetchAIHealthReport - just opens coupon modal
+  // New simplified fetchAIHealthReport - shows coupon modal ONLY for signed-in users
   const fetchAIHealthReport = async (evseId: string, stationName?: string) => {
+    // If user is NOT signed in, go directly to payment (skip coupon modal)
+    if (!user) {
+      setReportModal((prev) => ({ ...prev, paymentPending: true, paymentError: '', aiError: '', aiImageUrl: '' }));
+      proceedWithPayment(evseId, `${evseId}_${reportModal.connectorId || 1}`, 299, '', stationName);
+      return;
+    }
+    
+    // If user IS signed in, show coupon modal for credits/coupon options
     setCouponModalState({ open: true, evseId, stationName });
     setTempCouponInput('');
   };
@@ -1758,12 +1794,23 @@ const ChargingStations: React.FC = () => {
                     )}
 
                     {isLoaded && !user ? (
-                      <SignInButton mode="modal">
-                        <button className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl">
-                          <BarChart3 className="w-5 h-5" />
-                          <span>Sign In to Generate AI Report</span>
-                        </button>
-                      </SignInButton>
+                      <button
+                        onClick={() => fetchAIHealthReport(reportModal.evseId, reportModal.stationName)}
+                        disabled={reportModal.aiLoading || reportModal.paymentPending}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:from-gray-400 disabled:to-gray-400 text-white font-semibold rounded-lg transition-all duration-300 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+                      >
+                        {reportModal.paymentPending ? (
+                          <>
+                            <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
+                            <span>Processing Payment...</span>
+                          </>
+                        ) : (
+                          <>
+                            <BarChart3 className="w-5 h-5" />
+                            <span>Pay & Generate Report</span>
+                          </>
+                        )}
+                      </button>
                     ) : (
                       <button
                         onClick={() => fetchAIHealthReport(reportModal.evseId, reportModal.stationName)}

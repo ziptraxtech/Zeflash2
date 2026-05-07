@@ -204,7 +204,6 @@ generateReportRouter.post('/', optionalAuth, async (req: AuthRequest, res: Respo
               evseId: evse_id,
               connector: connector_id,
               status: 'processing',
-              guestEmail: email, // Store guest email for tracking
               ...(coupon_code && { couponCode: coupon_code }),
             },
           });

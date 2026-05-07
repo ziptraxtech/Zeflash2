@@ -60,7 +60,6 @@ model Payment {
 model Report {
   id        String   @id @default(cuid())
   userId    String?  // Optional - allows guest (unauthenticated) reports
-  guestEmail String? // Email provided by guest user
   evseId    String
   connector Int
   status    String   @default("processing")
