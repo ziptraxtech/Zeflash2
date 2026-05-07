@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { requireAuth, AuthRequest } from '../middleware/auth';
+import { requireAuth, optionalAuth, AuthRequest } from '../middleware/auth';
 import { getOrCreateUser, deductCredit } from '../services/userService';
 import { prisma } from '../lib/prisma';
 
@@ -154,10 +154,14 @@ export const generateReportRouter = Router();
  * POST /generate-report
  * Generate an AI battery report for a charger
  * 
- * Request: { evse_id: string, connector_id: number }
+ * Supports both authenticated and unauthenticated users:
+ * - Unauthenticated: Can only use paid_for_report flag (payment method)
+ * - Authenticated: Can use credits, coupons, or paid reports
+ * 
+ * Request: { evse_id: string, connector_id: number, paid_for_report?: boolean, coupon_code?: string }
  * Response: { reportId, status, anomalies, s3Url?, ... }
  */
-generateReportRouter.post('/', requireAuth, async (req: AuthRequest, res: Response) => {
+generateReportRouter.post('/', optionalAuth, async (req: AuthRequest, res: Response) => {
   try {
     const { evse_id, connector_id, email, coupon_code, station_name, paid_for_report } = req.body as {
       evse_id: string;
@@ -175,14 +179,109 @@ generateReportRouter.post('/', requireAuth, async (req: AuthRequest, res: Respon
       });
     }
 
-    // Get or create user
-    const user = await getOrCreateUser(req.clerkUserId!, email).catch(() => null);
+    // Check if using a valid coupon (skips credit requirement)
+    const coupon = validateCoupon(coupon_code);
+    
+    // Determine if user is authenticated
+    const isAuthenticated = !!req.clerkUserId;
+
+    // **RULE 1: Unauthenticated users can ONLY use paid reports**
+    if (!isAuthenticated) {
+      if (!paid_for_report && !coupon.isFree) {
+        return res.status(401).json({ 
+          error: 'Sign up to use credits or coupons. You can also proceed with direct payment.',
+          requireSignUp: true,
+        });
+      }
+
+      // If unauthenticated user is paying, create guest report
+      if (paid_for_report) {
+        console.log(`[generateReport] 🌐 Guest user generating paid report`);
+        
+        try {
+          const guestReport = await prisma.report.create({
+            data: {
+              evseId: evse_id,
+              connector: connector_id,
+              status: 'processing',
+              guestEmail: email, // Store guest email for tracking
+              ...(coupon_code && { couponCode: coupon_code }),
+            },
+          });
+
+          // Continue with inference (rest of flow is same)
+          const { job_id } = await triggerInference(evse_id, connector_id, station_name);
+          const result = await pollJob(job_id);
+          
+          console.log(`\n========================================`);
+          console.log(`[generateReport] ✅ ML INFERENCE COMPLETE (Guest)`);
+          console.log(`[generateReport] Anomaly Results:`);
+          console.log(`  - Total Samples: ${result.total_samples}`);
+          console.log(`  - Total Anomalies: ${result.total_anomalies}`);
+          console.log(`========================================\n`);
+
+          // Construct report URL
+          let s3Url: string | undefined;
+          if (result.s3_path) {
+            const s3Bucket = 'battery-ml-results-test';
+            const s3Region = 'us-east-1';
+            s3Url = `https://${s3Bucket}.s3.${s3Region}.amazonaws.com/${result.s3_path}`;
+            console.log(`[generateReport] Report S3 URL: ${s3Url}`);
+          }
+          
+          if (!s3Url) {
+            const s3Bucket = 'battery-ml-results-test';
+            const s3Region = 'us-east-1';
+            s3Url = `https://${s3Bucket}.s3.${s3Region}.amazonaws.com/battery-reports/${evse_id}_${connector_id}/battery_health_report.png`;
+          }
+
+          // Update report
+          const completed = await prisma.report.update({
+            where: { id: guestReport.id },
+            data: {
+              status: 'completed',
+              s3Url: s3Url,
+              anomalies: result.anomalies,
+              totalSamples: result.total_samples,
+              totalAnomalies: result.total_anomalies,
+              updatedAt: new Date(),
+            },
+          });
+
+          return res.json({
+            reportId: completed.id,
+            status: result.status,
+            anomalies: result.anomalies,
+            totalSamples: result.total_samples,
+            totalAnomalies: result.total_anomalies,
+            s3Url: completed.s3Url,
+            evseId: evse_id,
+            connector: connector_id,
+            generatedAt: completed.updatedAt,
+            recommendations: result.recommendations || [],
+          });
+        } catch (err: any) {
+          return res.status(500).json({
+            error: 'Report generation failed',
+            detail: err.message,
+          });
+        }
+      }
+    }
+
+    // **All paths below require authentication**
+    if (!req.clerkUserId) {
+      return res.status(401).json({ 
+        error: 'Authentication required for this operation',
+        requireSignUp: true,
+      });
+    }
+
+    // Get or create authenticated user
+    const user = await getOrCreateUser(req.clerkUserId, email).catch(() => null);
     if (!user) {
       return res.status(500).json({ error: 'Failed to resolve user' });
     }
-
-    // Check if using a valid coupon (skips credit requirement)
-    const coupon = validateCoupon(coupon_code);
     
     // Check credits (skip if using valid coupon OR if report was paid for via Razorpay)
     if (!coupon.isFree && !paid_for_report) {
