@@ -5,7 +5,7 @@ import { Search, MapPin, ArrowLeft, BarChart3, Zap, CheckCircle, Users, X, Activ
 import Papa from 'papaparse';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import { useAuth, useUser, SignInButton } from '@clerk/clerk-react';
+import { useAuth, useUser } from '@clerk/clerk-react';
 import { useAIReportPayment } from '../hooks/useAIReportPayment';
 import CreditsWallet from './CreditsWallet';
 import { MapContainer } from 'react-leaflet/MapContainer';
