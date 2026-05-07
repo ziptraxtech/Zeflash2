@@ -393,7 +393,7 @@ const ChargingStations: React.FC = () => {
       const connectorId = reportModal.connectorId || 1;
       const token = await getToken().catch(() => null);
       
-      // For signed-in users, include token; for unauthenticated users, skip token (but this path is only for signed-in)
+      // For signed-in users, include token; for unauthenticated users with coupons, request proceeds without token
       const response = await fetch(`${API_URL}/generate-report`, {
         method: 'POST',
         headers: {
@@ -452,16 +452,10 @@ const ChargingStations: React.FC = () => {
     }
   };
 
-  // New simplified fetchAIHealthReport - shows coupon modal ONLY for signed-in users
+  // New simplified fetchAIHealthReport - shows coupon modal for everyone (signed in or not)
   const fetchAIHealthReport = async (evseId: string, stationName?: string) => {
-    // If user is NOT signed in, go directly to payment (skip coupon modal)
-    if (!user) {
-      setReportModal((prev) => ({ ...prev, paymentPending: true, paymentError: '', aiError: '', aiImageUrl: '' }));
-      proceedWithPayment(evseId, `${evseId}_${reportModal.connectorId || 1}`, 299, '', stationName);
-      return;
-    }
-    
-    // If user IS signed in, show coupon modal for credits/coupon options
+    // Show coupon modal for all users (signed in or unsigned)
+    // Modal will handle payment or credits based on auth status
     setCouponModalState({ open: true, evseId, stationName });
     setTempCouponInput('');
   };
@@ -2307,15 +2301,20 @@ const ChargingStations: React.FC = () => {
               <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 border border-purple-200">
                 <p className="text-sm font-semibold text-gray-900 mb-2">Pricing:</p>
                 <div className="space-y-2 text-sm">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-700">Available Credits:</span>
-                    <span className="font-semibold text-emerald-700">
-                      {creditsLoading ? 'Loading…' : availableCredits}
-                    </span>
-                  </div>
-                  <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-2 py-1">
-                    1 credit = 1 AI report generation.
-                  </p>
+                  {/* Show credits info only for signed-in users */}
+                  {user && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-700">Available Credits:</span>
+                      <span className="font-semibold text-emerald-700">
+                        {creditsLoading ? 'Loading…' : availableCredits}
+                      </span>
+                    </div>
+                  )}
+                  {user && (
+                    <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-2 py-1">
+                      1 credit = 1 AI report generation.
+                    </p>
+                  )}
                   {tempCouponInput ? (
                     <>
                       <div className="flex justify-between items-center">
@@ -2353,17 +2352,20 @@ const ChargingStations: React.FC = () => {
               >
                 Cancel
               </button>
-              <button
-                onClick={handleUseCredits}
-                disabled={creditsLoading || availableCredits < 1}
-                className={`flex-1 px-4 py-3 font-semibold rounded-lg transition-all shadow-lg hover:shadow-xl ${
-                  creditsLoading || availableCredits < 1
-                    ? 'bg-emerald-200 text-emerald-700 cursor-not-allowed'
-                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                }`}
-              >
-                {creditsLoading ? 'Checking Credits…' : availableCredits > 0 ? 'Use 1 Credit' : 'No Credits'}
-              </button>
+              {/* Show "Use Credits" button only for signed-in users */}
+              {user && (
+                <button
+                  onClick={handleUseCredits}
+                  disabled={creditsLoading || availableCredits < 1}
+                  className={`flex-1 px-4 py-3 font-semibold rounded-lg transition-all shadow-lg hover:shadow-xl ${
+                    creditsLoading || availableCredits < 1
+                      ? 'bg-emerald-200 text-emerald-700 cursor-not-allowed'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                  }`}
+                >
+                  {creditsLoading ? 'Checking Credits…' : availableCredits > 0 ? 'Use 1 Credit' : 'No Credits'}
+                </button>
+              )}
               <button
                 onClick={handleCouponSubmit}
                 className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold rounded-lg transition-all shadow-lg hover:shadow-xl"
