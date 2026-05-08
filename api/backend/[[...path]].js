@@ -35,9 +35,12 @@ module.exports = async (req, res) => {
     const BACKEND_URL = process.env.BACKEND_URL || 'http://3.90.162.23:3001';
     
     // Extract path from URL pathname
-    // req.url format: /api/backend/credits?param=value
-    // We need to get just: /credits
+    // In Vercel catch-all routes, req.url includes the dynamic parameters
+    // We need to extract just the path part before any Vercel-added query params
     let path = req.url || '';
+    
+    // Remove Vercel catch-all parameters like ?[...path]=...
+    path = path.replace(/\?\[\.\.\.path\]=[^&]*/g, '');
     
     // Remove the /api/backend prefix
     if (path.startsWith('/api/backend/')) {
@@ -46,17 +49,13 @@ module.exports = async (req, res) => {
       path = path.substring('/api/backend'.length) || '/';
     }
     
-    // Remove query string if present (we'll add it back to the full URL)
-    const [pathOnly, queryString] = path.split('?');
+    // Clean up any remaining double slashes
+    path = path.replace(/^\/+/, '/');
     
-    // Build the full URL
-    const url = queryString 
-      ? `${BACKEND_URL}${pathOnly}?${queryString}` 
-      : `${BACKEND_URL}${pathOnly}`;
+    // Build the full URL (query string already preserved)
+    const url = `${BACKEND_URL}${path}`;
     
     console.log(`[Backend Proxy] ${req.method} ${url}`);
-    
-    // Prepare request body - manually parse from stream if needed
     let body;
     let parsedBody;
     
