@@ -201,6 +201,7 @@ generateReportRouter.post('/', optionalAuth, async (req: AuthRequest, res: Respo
         try {
           const guestReport = await prisma.report.create({
             data: {
+              userId: null, // Guest report - no user
               evseId: evse_id,
               connector: connector_id,
               status: 'processing',
