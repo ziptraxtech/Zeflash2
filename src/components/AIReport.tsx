@@ -39,7 +39,7 @@ const severityColor = (status: string) => {
 
 const AIReport: React.FC = () => {
   const { deviceId } = useParams<{ deviceId: string }>();
-  const { getToken } = useAuth();
+  const { getToken, isSignedIn } = useAuth();
   const location = useLocation();
   const reportRef = useRef<HTMLDivElement | null>(null);
   const paidForReport = (location.state as any)?.paid_for_report ?? false;
@@ -114,6 +114,13 @@ const AIReport: React.FC = () => {
       setGenerating(true);
       setGenError(null);
 
+      // **Check if user is authenticated OR has paid for the report**
+      if (!isSignedIn && !paidForReport) {
+        setGenError('Please sign in to use credits, or choose a payment method to generate a report.');
+        setGenerating(false);
+        return;
+      }
+
       const generate = async (): Promise<void> => {
         const res = await fetch(`${API_URL}/generate-report`, {
           method: 'POST',
@@ -148,6 +155,12 @@ const AIReport: React.FC = () => {
 
         if (!res.ok) {
           const e = await res.json().catch(() => ({}));
+          
+          // Handle 401 (authentication required for unauthenticated users trying to use credits)
+          if (res.status === 401 && e.requireSignUp) {
+            throw new Error(e.error || 'Sign up to use credits or coupons. You can also proceed with direct payment.');
+          }
+          
           throw new Error(e.error || 'Report generation failed. Please try again.');
         }
         const d = await res.json();
@@ -173,7 +186,7 @@ const AIReport: React.FC = () => {
 
     loadReport();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [evseId, connectorId]);
+  }, [evseId, connectorId, isSignedIn, paidForReport]);
 
   const data: DeviceAIReport = useMemo(() => {
     // Use real ML data if available, otherwise show loading state
