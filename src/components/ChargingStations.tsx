@@ -266,14 +266,16 @@ const ChargingStations: React.FC = () => {
     const deviceId = `${evseId}_${reportModal.connectorId || 1}`;
     const stationName = reportModal.stationName;  // Get station name from reportModal, not couponModalState
 
-    if (couponInfo.amount === 0) {
-      // Free coupon - skip payment
+    if (couponInfo.valid && couponInfo.amount === 0) {
+      // Valid free coupon - skip payment and generate report
       setReportModal((prev) => ({ ...prev, aiLoading: true, aiError: '', aiImageUrl: '' }));
       proceedWithAIReport(evseId, deviceId, tempCouponInput.toUpperCase(), stationName);
     } else {
-      // Paid coupon or regular - proceed with payment
+      // No coupon or paid coupon - proceed with payment
+      // Default to ₹299 if no coupon, or use coupon amount if provided
+      const amountToCharge = couponInfo.valid ? couponInfo.amount : 299;
       setReportModal((prev) => ({ ...prev, paymentPending: true, paymentError: '', aiError: '', aiImageUrl: '' }));
-      proceedWithPayment(evseId, deviceId, couponInfo.amount, tempCouponInput.toUpperCase(), stationName);
+      proceedWithPayment(evseId, deviceId, amountToCharge, tempCouponInput.toUpperCase(), stationName);
     }
   };
 
