@@ -32,7 +32,7 @@ async function parseBody(req) {
 
 module.exports = async (req, res) => {
   try {
-    const BACKEND_URL = process.env.BACKEND_URL || 'http://3.90.162.23:3001';
+    const BACKEND_URL = 'http://zeflash-backend-api-347575614.us-east-1.elb.amazonaws.com';
     
     // Extract path from URL pathname
     // In Vercel catch-all routes, req.url includes the dynamic parameters
