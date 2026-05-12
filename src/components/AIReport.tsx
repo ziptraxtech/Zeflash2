@@ -169,9 +169,13 @@ const AIReport: React.FC = () => {
         if (!res.ok) {
           const e = await res.json().catch(() => ({}));
           
-          // Handle 401 (authentication required for unauthenticated users trying to use credits)
-          if (res.status === 401 && e.requireSignUp) {
-            throw new Error(e.error || 'Sign up to use credits or coupons. You can also proceed with direct payment.');
+          // Handle 401 errors - ask user to sign in or pay
+          if (res.status === 401) {
+            if (e.requireSignUp) {
+              throw new Error(e.error || 'Sign up to use credits or coupons. You can also proceed with direct payment.');
+            } else {
+              throw new Error('Missing authentication. Please sign in or choose a payment method to generate a report.');
+            }
           }
           
           throw new Error(e.error || 'Report generation failed. Please try again.');
