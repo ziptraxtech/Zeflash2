@@ -39,8 +39,8 @@ module.exports = async (req, res) => {
     // We need to extract just the path part before any Vercel-added query params
     let path = req.url || '';
     
-    // Remove Vercel catch-all parameters like ?[...path]=...
-    path = path.replace(/\?\[\.\.\.path\]=[^&]*/g, '');
+    // Remove Vercel catch-all parameters like ?[...path]=... (handles both literal and URL-encoded brackets)
+    path = path.replace(/\?(%5B\.\.\.path%5D|\[\.\.\.path\])=[^&]*/g, '');
     
     // Remove the /api/backend prefix
     if (path.startsWith('/api/backend/')) {
