@@ -122,18 +122,31 @@ const AIReport: React.FC = () => {
       }
 
       const generate = async (): Promise<void> => {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        
+        // Only add Authorization if user is signed in
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
+        
         const res = await fetch(`${API_URL}/generate-report`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: authHeader },
+          headers: headers,
           body: JSON.stringify({ evse_id: evseId, connector_id: connectorId, paid_for_report: paidForReport }),
         });
 
         if (res.status === 402) {
           // Webhook may still be processing — wait and retry once
           await new Promise((r) => setTimeout(r, 5000));
+          
+          const retryHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+          if (authHeader) {
+            retryHeaders.Authorization = authHeader;
+          }
+          
           const retry = await fetch(`${API_URL}/generate-report`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: authHeader },
+            headers: retryHeaders,
             body: JSON.stringify({ evse_id: evseId, connector_id: connectorId, paid_for_report: paidForReport }),
           });
           if (!retry.ok) {
