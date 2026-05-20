@@ -163,6 +163,14 @@ export const generateReportRouter = Router();
  */
 generateReportRouter.post('/', optionalAuth, async (req: AuthRequest, res: Response) => {
   try {
+    console.log('[generateReport] 📥 Incoming request:', {
+      userId: req.clerkUserId ? `${req.clerkUserId.substring(0, 10)}...` : 'UNSIGNED',
+      method: req.method,
+      path: req.path,
+      hasAuthHeader: !!req.headers.authorization,
+      authHeaderStart: req.headers.authorization ? req.headers.authorization.substring(0, 20) : 'none',
+    });
+
     const { evse_id, connector_id, email, coupon_code, station_name, paid_for_report } = req.body as {
       evse_id: string;
       connector_id: number;
@@ -171,6 +179,13 @@ generateReportRouter.post('/', optionalAuth, async (req: AuthRequest, res: Respo
       station_name?: string;
       paid_for_report?: boolean;
     };
+
+    console.log('[generateReport] Request body:', {
+      evse_id,
+      connector_id,
+      paid_for_report,
+      coupon_code,
+    });
 
     // Validate input
     if (!evse_id || connector_id === undefined) {
@@ -184,6 +199,10 @@ generateReportRouter.post('/', optionalAuth, async (req: AuthRequest, res: Respo
     
     // Determine if user is authenticated
     const isAuthenticated = !!req.clerkUserId;
+    console.log('[generateReport] Auth status:', {
+      isAuthenticated,
+      userId: req.clerkUserId ? `${req.clerkUserId.substring(0, 10)}...` : 'NONE',
+    });
 
     // **RULE 1: Unauthenticated users can ONLY use paid reports**
     if (!isAuthenticated) {

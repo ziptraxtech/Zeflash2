@@ -1,3 +1,4 @@
+
 import { verifyToken } from '@clerk/backend';
 import { Request, Response, NextFunction } from 'express';
 
@@ -38,20 +39,32 @@ export async function optionalAuth(
   res: Response,
   next: NextFunction
 ): Promise<void> {
+  console.log('[optionalAuth] 🔐 Checking auth header...');
   const authHeader = req.headers.authorization;
+  
+  console.log('[optionalAuth] Auth header status:', {
+    present: !!authHeader,
+    startsWithBearer: authHeader ? authHeader.startsWith('Bearer ') : false,
+    headerStart: authHeader ? authHeader.substring(0, 30) : 'MISSING',
+  });
 
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.split(' ')[1];
+    console.log('[optionalAuth] 🔑 Token found, verifying...');
 
     try {
       const payload = await verifyToken(token, {
         secretKey: process.env.CLERK_SECRET_KEY!,
       });
       req.clerkUserId = payload.sub;
-    } catch {
+      console.log('[optionalAuth] ✅ Token verified, userId:', payload.sub.substring(0, 10) + '...');
+    } catch (err) {
       // Token is invalid but we don't reject - just continue without user context
+      console.log('[optionalAuth] ❌ Token verification failed (but allowing unauthenticated request):', (err as any).message);
       req.clerkUserId = undefined;
     }
+  } else {
+    console.log('[optionalAuth] ✅ No auth header - allowing unauthenticated request');
   }
 
   next();
