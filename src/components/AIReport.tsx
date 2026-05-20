@@ -115,11 +115,15 @@ const AIReport: React.FC = () => {
       setGenError(null);
 
       // **Check if user is authenticated OR has paid for the report**
+      console.log('[AIReport] isSignedIn:', isSignedIn, 'paidForReport:', paidForReport, 'token:', !!token);
       if (!isSignedIn && !paidForReport) {
+        console.log('[AIReport] ❌ Blocking unauthenticated user without payment');
         setGenError('Please sign in to use credits, or choose a payment method to generate a report.');
         setGenerating(false);
         return;
       }
+      
+      console.log('[AIReport] ✅ Proceeding with report generation');
 
       const generate = async (): Promise<void> => {
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -129,6 +133,13 @@ const AIReport: React.FC = () => {
           headers.Authorization = authHeader;
         }
         
+        console.log('[AIReport] 📤 Sending request to /generate-report with:', {
+          hasAuthHeader: !!headers.Authorization,
+          paidForReport,
+          evseId,
+          headers: Object.keys(headers)
+        });
+        
         const res = await fetch(`${API_URL}/generate-report`, {
           method: 'POST',
           headers: headers,
@@ -137,6 +148,7 @@ const AIReport: React.FC = () => {
 
         if (res.status === 402) {
           // Webhook may still be processing — wait and retry once
+          console.log('[AIReport] 🔄 Got 402, retrying after 5s...');
           await new Promise((r) => setTimeout(r, 5000));
           
           const retryHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -168,6 +180,12 @@ const AIReport: React.FC = () => {
 
         if (!res.ok) {
           const e = await res.json().catch(() => ({}));
+          
+          console.log('[AIReport] ❌ Response not OK:', {
+            status: res.status,
+            error: e.error,
+            requireSignUp: e.requireSignUp
+          });
           
           // Handle 401 errors - ask user to sign in or pay
           if (res.status === 401) {
