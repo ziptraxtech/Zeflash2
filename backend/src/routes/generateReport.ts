@@ -213,9 +213,10 @@ generateReportRouter.post('/', optionalAuth, async (req: AuthRequest, res: Respo
         });
       }
 
-      // If unauthenticated user is paying, create guest report
-      if (paid_for_report) {
-        console.log(`[generateReport] 🌐 Guest user generating paid report`);
+      // If unauthenticated user is paying OR has valid free coupon, create guest report
+      if (paid_for_report || (coupon.isFree && coupon.valid)) {
+        const paymentMethod = paid_for_report ? 'paid' : 'free coupon';
+        console.log(`[generateReport] 🌐 Guest user generating report via ${paymentMethod}`);
         
         try {
           const guestReport = await prisma.report.create({
