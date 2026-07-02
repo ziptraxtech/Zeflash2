@@ -1278,431 +1278,349 @@ const ChargingStations: React.FC = () => {
                   onClick={async () => {
                     if (!reportContentRef.current || !reportModal.data?.data || !aiImageContainerRef.current) return;
                     try {
-                      const pdf = new jsPDF({
-                        orientation: 'portrait',
-                        unit: 'mm',
-                        format: 'a4'
-                      });
-                      
-                      const pageWidth = pdf.internal.pageSize.getWidth();
-                      const pageHeight = pdf.internal.pageSize.getHeight();
-                      const margin = 8;
-                      const contentWidth = pageWidth - (2 * margin);
-                      const headerHeight = 16;
+                      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-                      const colors = {
-                        pageBg: [248, 250, 252],
-                        headerBg: [37, 99, 235],
-                        headerText: [255, 255, 255],
-                        bodyText: [33, 37, 41],
-                        sectionTitle: [30, 64, 175],
-                        divider: [203, 213, 225],
-                        cardBg: [255, 255, 255],
-                        cardBorder: [226, 232, 240]
+                      const PW = pdf.internal.pageSize.getWidth();   // 210
+                      const PH = pdf.internal.pageSize.getHeight();  // 297
+                      const M  = 14;            // page margin
+                      const CW = PW - 2 * M;   // content width = 182
+                      const LINE_H = 5.5;       // standard body line height
+                      const HEADER_H = 24;      // header strip height
+                      const FOOTER_H = 12;      // footer strip height
+                      const BODY_TOP = HEADER_H + 9; // first usable y after header
+
+                      // ── Colour palette ──────────────────────────────────────
+                      const C = {
+                        headerBg:    [22, 78, 174]   as const,
+                        headerLight: [59, 130, 246]  as const,
+                        accent:      [37, 99, 235]   as const,
+                        accentLight: [219, 234, 254] as const,
+                        white:       [255, 255, 255] as const,
+                        gray50:      [249, 250, 251] as const,
+                        gray100:     [243, 244, 246] as const,
+                        gray200:     [229, 231, 235] as const,
+                        gray500:     [107, 114, 128] as const,
+                        gray700:     [55, 65, 81]    as const,
+                        gray900:     [17, 24, 39]    as const,
+                        sectionFg:   [30, 64, 175]   as const,
                       } as const;
 
-                      const drawBackgroundAndHeader = () => {
-                        // Page background
-                        pdf.setFillColor(colors.pageBg[0], colors.pageBg[1], colors.pageBg[2]);
-                        pdf.rect(0, 0, pageWidth, pageHeight, 'F');
-                        // Header banner
-                        pdf.setFillColor(colors.headerBg[0], colors.headerBg[1], colors.headerBg[2]);
-                        pdf.rect(0, 0, pageWidth, headerHeight, 'F');
-                        pdf.setTextColor(colors.headerText[0], colors.headerText[1], colors.headerText[2]);
-                        pdf.setFontSize(12);
-                        pdf.text('Charger Report', margin, 7);
-                        pdf.setFontSize(9);
-                        const headerSubtitle = reportModal.stationName 
-                          ? `${reportModal.stationName} • EVSE ID: ${reportModal.evseId} | Connector: ${reportModal.connectorId}`
-                          : `EVSE ID: ${reportModal.evseId} | Connector: ${reportModal.connectorId}`;
-                        pdf.text(headerSubtitle, margin, 11.5);
-                        pdf.text(`Date: ${new Date().toISOString().slice(0, 10)}`, margin, 14);
-                        // Divider under header
-                        pdf.setDrawColor(colors.divider[0], colors.divider[1], colors.divider[2]);
-                        pdf.setLineWidth(0.2);
-                        pdf.line(margin, headerHeight + 0.5, pageWidth - margin, headerHeight + 0.5);
-                        // Reset body text styling
-                        pdf.setTextColor(colors.bodyText[0], colors.bodyText[1], colors.bodyText[2]);
-                        pdf.setFontSize(10);
+                      // ── Helpers ─────────────────────────────────────────────
+                      const drawHeader = () => {
+                        // Gradient-like two-tone strip
+                        pdf.setFillColor(...C.headerBg);
+                        pdf.rect(0, 0, PW, HEADER_H, 'F');
+                        pdf.setFillColor(...C.headerLight);
+                        pdf.rect(PW - 60, 0, 60, HEADER_H, 'F');
+                        // Brand name
+                        pdf.setTextColor(...C.white);
+                        pdf.setFont('helvetica', 'bold');
+                        pdf.setFontSize(16);
+                        pdf.text('ZEFLASH', M, 11);
+                        pdf.setFont('helvetica', 'normal');
+                        pdf.setFontSize(7);
+                        pdf.text('AI BATTERY INTELLIGENCE PLATFORM', M, 16.5);
+                        // Report type
+                        pdf.setFontSize(8.5);
+                        pdf.text('RAPID AI Battery Health Report', M, 21.5);
+                        // Right side metadata
+                        const rX = PW - M;
+                        const stLabel = reportModal.stationName || '—';
+                        pdf.setFontSize(7.5);
+                        pdf.text(stLabel.length > 28 ? stLabel.slice(0, 26) + '…' : stLabel, rX, 9, { align: 'right' });
+                        pdf.text(`EVSE: ${reportModal.evseId}  •  Connector: ${reportModal.connectorId}`, rX, 14, { align: 'right' });
+                        pdf.text(
+                          `Generated: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`,
+                          rX, 19, { align: 'right' }
+                        );
+                        // Bottom accent line
+                        pdf.setDrawColor(...C.accent);
+                        pdf.setLineWidth(0.6);
+                        pdf.line(0, HEADER_H, PW, HEADER_H);
+                      };
+
+                      const drawFooter = (pageNum: number, total: number) => {
+                        pdf.setFillColor(...C.gray50);
+                        pdf.rect(0, PH - FOOTER_H, PW, FOOTER_H, 'F');
+                        pdf.setDrawColor(...C.gray200);
+                        pdf.setLineWidth(0.3);
+                        pdf.line(0, PH - FOOTER_H, PW, PH - FOOTER_H);
+                        pdf.setTextColor(...C.gray500);
+                        pdf.setFont('helvetica', 'normal');
+                        pdf.setFontSize(7);
+                        pdf.text('Powered by Zeflash AI  •  zeflash.app', M, PH - FOOTER_H + 5);
+                        pdf.text(`Page ${pageNum} of ${total}`, PW / 2, PH - FOOTER_H + 5, { align: 'center' });
+                        pdf.text('Confidential — For vehicle owner use only', PW - M, PH - FOOTER_H + 5, { align: 'right' });
                       };
 
                       const newPage = () => {
                         pdf.addPage();
-                        drawBackgroundAndHeader();
-                        return headerHeight + margin;
+                        drawHeader();
+                        return BODY_TOP;
                       };
 
-                      // First page chrome
-                      drawBackgroundAndHeader();
-                      let currentPosition = headerHeight + margin;
+                      // Draws a blue-bar section heading; returns next y
+                      const sectionHeading = (label: string, y: number): number => {
+                        pdf.setFillColor(...C.accent);
+                        pdf.rect(M, y, 2.5, 6, 'F');
+                        pdf.setTextColor(...C.sectionFg);
+                        pdf.setFont('helvetica', 'bold');
+                        pdf.setFontSize(10.5);
+                        pdf.text(label, M + 5.5, y + 4.5);
+                        pdf.setFont('helvetica', 'normal');
+                        // thin divider line
+                        pdf.setDrawColor(...C.gray200);
+                        pdf.setLineWidth(0.25);
+                        pdf.line(M + 5.5, y + 6.5, PW - M, y + 6.5);
+                        return y + 11;
+                      };
 
-                      // Add AI Image Section - Use the already-loaded image from DOM
-                      pdf.setTextColor(colors.sectionTitle[0], colors.sectionTitle[1], colors.sectionTitle[2]);
-                      pdf.setFontSize(12);
-                      pdf.text('AI Battery Health Analysis', margin, currentPosition);
-                      currentPosition += 6;
+                      // ── Page 1 ────────────────────────────────────────────
+                      drawHeader();
+                      let y = BODY_TOP;
 
-                      // Card container for AI section
-                      const cardX = margin;
-                      const cardYStart = currentPosition;
-                      const cardPadding = 4;
-                      let cardHeight = 30; // will adjust after image
-                      pdf.setDrawColor(colors.cardBorder[0], colors.cardBorder[1], colors.cardBorder[2]);
-                      pdf.setFillColor(colors.cardBg[0], colors.cardBg[1], colors.cardBg[2]);
-                      pdf.roundedRect(cardX, cardYStart, contentWidth, cardHeight, 2, 2, 'FD');
-                      currentPosition += cardPadding;
+                      // Info summary strip
+                      pdf.setFillColor(...C.accentLight);
+                      pdf.setDrawColor(...C.accent);
+                      pdf.setLineWidth(0.3);
+                      pdf.roundedRect(M, y, CW, 16, 2, 2, 'FD');
+                      pdf.setFont('helvetica', 'bold');
+                      pdf.setFontSize(7.5);
+                      pdf.setTextColor(...C.gray700);
+                      const cols = [M + 4, M + 52, M + 104, M + 150] as const;
+                      (['Station', 'EVSE ID', 'Connector', 'Date'] as const).forEach((lbl, i) => {
+                        pdf.text(lbl, cols[i], y + 5.5);
+                      });
+                      pdf.setFont('helvetica', 'normal');
+                      pdf.setFontSize(8.5);
+                      pdf.setTextColor(...C.gray900);
+                      const dateStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+                      const infoVals = [
+                        (reportModal.stationName || '—').slice(0, 20),
+                        reportModal.evseId.slice(0, 18),
+                        `${reportModal.connectorId}`,
+                        dateStr,
+                      ];
+                      infoVals.forEach((val, i) => pdf.text(val, cols[i], y + 12));
+                      y += 22;
 
+                      // ── AI Health Analysis ────────────────────────────────
+                      y = sectionHeading('AI Battery Health Analysis', y);
+
+                      const cardPad = 4;
+                      let aiPlaced = false;
                       try {
-                        // Get the img element that's already loaded in the DOM
-                        const imgElement = aiImageContainerRef.current.querySelector('img') as HTMLImageElement;
-                        
-                        if (imgElement && imgElement.src && imgElement.naturalHeight > 0) {
-                          // Image is already loaded in DOM, draw it on a canvas
-                          const canvas = document.createElement('canvas');
-                          const ctx = canvas.getContext('2d');
-                          if (!ctx) throw new Error('Could not get canvas context');
-                          
-                          // Set canvas dimensions to match the natural image size
-                          canvas.width = imgElement.naturalWidth;
-                          canvas.height = imgElement.naturalHeight;
-                          
-                          // Draw the image from the already-loaded DOM element
-                          ctx.drawImage(imgElement, 0, 0);
-                          
-                          // Get the canvas as PNG
-                          const imgData = canvas.toDataURL('image/png');
-                          
-                          // Calculate dimensions for PDF
-                          const imgWidth = contentWidth - (2 * cardPadding);
-                          const imgHeight = (imgElement.naturalHeight * imgWidth) / imgElement.naturalWidth;
-                          
-                          if (currentPosition + imgHeight + cardPadding > pageHeight - margin) {
-                            currentPosition = newPage();
-                            // Re-draw card backdrop on new page
-                            pdf.roundedRect(cardX, currentPosition, contentWidth, imgHeight + (2 * cardPadding), 2, 2, 'FD');
-                            currentPosition += cardPadding;
+                        const imgEl = aiImageContainerRef.current!.querySelector('img') as HTMLImageElement;
+                        if (imgEl && imgEl.naturalHeight > 0) {
+                          const aiCanvas = document.createElement('canvas');
+                          const aiCtx = aiCanvas.getContext('2d')!;
+                          aiCanvas.width  = imgEl.naturalWidth;
+                          aiCanvas.height = imgEl.naturalHeight;
+                          aiCtx.drawImage(imgEl, 0, 0);
+                          const aiImgData = aiCanvas.toDataURL('image/png');
+                          const aiW = CW - 2 * cardPad;
+                          const aiH = (imgEl.naturalHeight * aiW) / imgEl.naturalWidth;
+                          if (y + aiH + 2 * cardPad > PH - FOOTER_H - M) {
+                            y = newPage();
+                            y = sectionHeading('AI Battery Health Analysis (cont.)', y);
                           }
-                          
-                          pdf.addImage(imgData, 'PNG', margin + cardPadding, currentPosition, imgWidth, imgHeight);
-                          currentPosition += imgHeight + cardPadding;
-                          // Adjust card height and redraw border to fit content
-                          cardHeight = (currentPosition - cardYStart) + cardPadding;
-                          pdf.setDrawColor(colors.cardBorder[0], colors.cardBorder[1], colors.cardBorder[2]);
-                          pdf.roundedRect(cardX, cardYStart, contentWidth, cardHeight, 2, 2);
-                          currentPosition += 6;
-                        } else {
-                          pdf.setTextColor(150);
-                          pdf.setFontSize(9);
-                          pdf.text('AI image not yet loaded. Please wait for image to load in the UI first.', margin, currentPosition);
-                          currentPosition += 8;
-                          // Adjust card to minimal height
-                          cardHeight = (currentPosition - cardYStart) + cardPadding;
-                          pdf.roundedRect(cardX, cardYStart, contentWidth, cardHeight, 2, 2);
+                          pdf.setFillColor(...C.white);
+                          pdf.setDrawColor(...C.gray200);
+                          pdf.setLineWidth(0.3);
+                          pdf.roundedRect(M, y, CW, aiH + 2 * cardPad, 2, 2, 'FD');
+                          pdf.addImage(aiImgData, 'PNG', M + cardPad, y + cardPad, aiW, aiH);
+                          y += aiH + 2 * cardPad + 7;
+                          aiPlaced = true;
                         }
-                      } catch (err) {
-                        console.error('Failed to process AI image via direct canvas draw:', err);
+                      } catch (_e) { /* fall through to html2canvas */ }
+
+                      if (!aiPlaced) {
                         try {
-                          const container = aiImageContainerRef.current;
-                          if (container) {
-                            const canvas = await html2canvas(container, {
-                              scale: 2,
-                              logging: false,
-                              useCORS: true,
-                              allowTaint: false,
-                              backgroundColor: '#ffffff'
-                            });
-                            const imgData = canvas.toDataURL('image/png');
-                            const imgWidth = contentWidth - (2 * cardPadding);
-                            const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-                            if (currentPosition + imgHeight + cardPadding > pageHeight - margin) {
-                              currentPosition = newPage();
-                              pdf.roundedRect(cardX, currentPosition, contentWidth, imgHeight + (2 * cardPadding), 2, 2, 'FD');
-                              currentPosition += cardPadding;
-                            }
-                            pdf.addImage(imgData, 'PNG', margin + cardPadding, currentPosition, imgWidth, imgHeight);
-                            currentPosition += imgHeight + cardPadding;
-                            cardHeight = (currentPosition - cardYStart) + cardPadding;
-                            pdf.roundedRect(cardX, cardYStart, contentWidth, cardHeight, 2, 2);
-                            currentPosition += 6;
-                          } else {
-                            pdf.setTextColor(150);
-                            pdf.setFontSize(9);
-                            pdf.text('Unable to process AI image', margin, currentPosition);
-                            currentPosition += 8;
-                            cardHeight = (currentPosition - cardYStart) + cardPadding;
-                            pdf.roundedRect(cardX, cardYStart, contentWidth, cardHeight, 2, 2);
+                          const fbCanvas = await html2canvas(aiImageContainerRef.current!, {
+                            scale: 2, logging: false, useCORS: true, backgroundColor: '#ffffff'
+                          });
+                          const fbData = fbCanvas.toDataURL('image/png');
+                          const fbW = CW - 2 * cardPad;
+                          const fbH = (fbCanvas.height * fbW) / fbCanvas.width;
+                          if (y + fbH + 2 * cardPad > PH - FOOTER_H - M) {
+                            y = newPage();
+                            y = sectionHeading('AI Battery Health Analysis (cont.)', y);
                           }
-                        } catch (fallbackErr) {
-                          console.error('Fallback html2canvas capture also failed:', fallbackErr);
-                          pdf.setTextColor(150);
-                          pdf.setFontSize(9);
-                          pdf.text('Unable to process AI image', margin, currentPosition);
-                          currentPosition += 8;
-                          cardHeight = (currentPosition - cardYStart) + cardPadding;
-                          pdf.roundedRect(cardX, cardYStart, contentWidth, cardHeight, 2, 2);
+                          pdf.setFillColor(...C.white);
+                          pdf.setDrawColor(...C.gray200);
+                          pdf.setLineWidth(0.3);
+                          pdf.roundedRect(M, y, CW, fbH + 2 * cardPad, 2, 2, 'FD');
+                          pdf.addImage(fbData, 'PNG', M + cardPad, y + cardPad, fbW, fbH);
+                          y += fbH + 2 * cardPad + 7;
+                        } catch (_e2) {
+                          pdf.setTextColor(...C.gray500);
+                          pdf.setFontSize(8.5);
+                          pdf.text('AI image unavailable — generate the AI report first.', M, y + 5);
+                          y += 12;
                         }
                       }
 
-                      // Add Detailed Analysis Section based on anomalies
+                      // ── Battery Health Assessment ─────────────────────────
                       if (reportModal.recommendations && reportModal.recommendations.length > 0) {
-                        currentPosition += 4;
-                        
-                        // Calculate anomaly percentage for detailed analysis using AI report data
-                        const totalAnomalies = reportModal.aiReportData?.totalAnomalies || 0;
-                        const totalSamples = reportModal.aiReportData?.totalSamples || 1;
-                        const anomalyPercentage = (totalAnomalies / totalSamples) * 100;
-                        
-                        console.log('[PDF] Anomaly data:', { totalAnomalies, totalSamples, anomalyPercentage });
+                        const totalAnomalies = reportModal.aiReportData?.totalAnomalies ?? 0;
+                        const totalSamples   = reportModal.aiReportData?.totalSamples   ?? 1;
+                        const anomalyPct     = (totalAnomalies / totalSamples) * 100;
 
-                        // Detailed Analysis Header
-                        pdf.setTextColor(colors.sectionTitle[0], colors.sectionTitle[1], colors.sectionTitle[2]);
-                        pdf.setFontSize(12);
-                        pdf.text('Detailed Analysis & Recommendations', margin, currentPosition);
-                        currentPosition += 4;
+                        // Status colours
+                        let badgeBg: readonly [number,number,number];
+                        let badgeFg: readonly [number,number,number];
+                        let statusLabel: string;
+                        let riskSummary: string;
 
-                        // Analysis based on percentage
-                        let analysisText = '';
-                        let statusColor = [0, 0, 0];
-                        
-                        if (anomalyPercentage >= 50) {
-                          analysisText = `CRITICAL STATUS (${anomalyPercentage.toFixed(1)}% anomalies detected)\n\n` +
-                            'Your battery system is showing severe anomalies that pose a critical risk. Immediate action is required.\n\n' +
-                            'Risk Level: EXTREME - Battery degradation is advanced and may lead to system failure.';
-                          statusColor = [220, 20, 60]; // Crimson red
-                        } else if (anomalyPercentage >= 25) {
-                          analysisText = `HIGH RISK STATUS (${anomalyPercentage.toFixed(1)}% anomalies detected)\n\n` +
-                            'Significant abnormalities have been detected in your battery performance.\n\n' +
-                            'Risk Level: HIGH - Recommend scheduling a diagnostic check soon to prevent further degradation.';
-                          statusColor = [255, 140, 0]; // Orange
-                        } else if (anomalyPercentage >= 15) {
-                          analysisText = `CAUTION STATUS (${anomalyPercentage.toFixed(1)}% anomalies detected)\n\n` +
-                            '• Early signs of degradation or inconsistency detected.\n' +
-                            '• Slight drop in performance and beginning of uneven cell behavior.\n' +
-                            '• Not critical yet, but trending negatively.\n' +
-                            '• Regular monitoring is essential.';
-                          statusColor = [30, 105, 210]; // Deep blue
-                        } else if (anomalyPercentage >= 5) {
-                          analysisText = `GOOD STATUS (${anomalyPercentage.toFixed(1)}% anomalies detected)\n\n` +
-                            'Minor anomalies detected but within acceptable parameters.\n\n' +
-                            'Risk Level: LOW - Continue normal usage with periodic monitoring.';
-                          statusColor = [144, 238, 144]; // Light green
+                        if (anomalyPct >= 50) {
+                          badgeBg = [254, 226, 226]; badgeFg = [185, 28, 28];
+                          statusLabel = 'CRITICAL';
+                          riskSummary = 'Battery system is showing severe anomalies — immediate action required. Risk level: EXTREME.';
+                        } else if (anomalyPct >= 25) {
+                          badgeBg = [255, 237, 213]; badgeFg = [154, 52, 18];
+                          statusLabel = 'HIGH RISK';
+                          riskSummary = 'Significant abnormalities detected in battery performance. Schedule a diagnostic check soon.';
+                        } else if (anomalyPct >= 15) {
+                          badgeBg = [254, 249, 195]; badgeFg = [133, 77, 14];
+                          statusLabel = 'CAUTION';
+                          riskSummary = 'Early degradation signs detected — not critical yet, but regular monitoring is essential.';
+                        } else if (anomalyPct >= 5) {
+                          badgeBg = [220, 252, 231]; badgeFg = [21, 128, 61];
+                          statusLabel = 'GOOD';
+                          riskSummary = 'Minor anomalies within acceptable parameters. Continue normal usage with periodic monitoring.';
                         } else {
-                          analysisText = `NORMAL STATUS (${anomalyPercentage.toFixed(1)}% anomalies detected)\n\n` +
-                            'Your battery is operating in optimal condition with no material anomalies.\n\n' +
-                            'Risk Level: MINIMAL - Maintain current usage habits and enjoy maximum efficiency.';
-                          statusColor = [76, 175, 80]; // Green
+                          badgeBg = [209, 250, 229]; badgeFg = [4, 120, 87];
+                          statusLabel = 'NORMAL';
+                          riskSummary = 'Battery operating in optimal condition with no material anomalies detected.';
                         }
 
-                        // Analysis box
-                        const analysisCardX = margin;
-                        let analysisCardYStart = currentPosition;
-                        pdf.setDrawColor(statusColor[0], statusColor[1], statusColor[2]);
-                        pdf.setLineWidth(1.5);
-                        pdf.setFillColor(219, 234, 254); // Light blue background
-                        
-                        pdf.setTextColor(statusColor[0], statusColor[1], statusColor[2]); // Use status color for text
-                        pdf.setFontSize(11);
-                        const analysisLines = pdf.splitTextToSize(analysisText, contentWidth - (2 * 4));
-                        let analysisHeight = 4 + (analysisLines.length * 4) + 4;
-                        
-                        if (currentPosition + analysisHeight > pageHeight - margin) {
-                          currentPosition = newPage();
-                          analysisCardYStart = currentPosition;
-                        }
-                        
-                        pdf.roundedRect(analysisCardX, analysisCardYStart, contentWidth, analysisHeight, 3, 3, 'FD');
-                        
-                        let analysisY = analysisCardYStart + 4;
-                        for (let i = 0; i < analysisLines.length; i++) {
-                          if (i === 0) {
-                            pdf.setFontSize(11);
-                            pdf.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
-                          } else {
-                            pdf.setFontSize(9);
-                            pdf.setTextColor(50, 50, 50); // Dark gray for body text
-                          }
-                          pdf.text(analysisLines[i], margin + 4, analysisY);
-                          analysisY += 4;
-                        }
-                        
-                        currentPosition = analysisCardYStart + analysisHeight + 4;
+                        if (y + 46 > PH - FOOTER_H - M) y = newPage();
+                        y = sectionHeading('Battery Health Assessment', y);
 
-                        // Recommended Actions Section
-                        // Check if we need a new page
-                        if (currentPosition + 30 > pageHeight - margin) {
-                          currentPosition = newPage();
-                        }
+                        // Status badge pill
+                        const bW = 44; const bH = 8;
+                        pdf.setFillColor(...badgeBg);
+                        pdf.roundedRect(M, y, bW, bH, 2, 2, 'F');
+                        pdf.setTextColor(...badgeFg);
+                        pdf.setFont('helvetica', 'bold');
+                        pdf.setFontSize(8.5);
+                        pdf.text(statusLabel, M + bW / 2, y + 5.5, { align: 'center' });
 
-                        // Recommendations header
-                        pdf.setTextColor(colors.sectionTitle[0], colors.sectionTitle[1], colors.sectionTitle[2]);
-                        pdf.setFontSize(12);
-                        pdf.text('Recommended Actions', margin, currentPosition);
-                        currentPosition += 5;
-
-                        // Extract just the English text from recommendations (remove Hindi in brackets)
-                        let cleanedRecs = (reportModal.recommendations || []).map(rec => {
-                          // Remove text in brackets [...]
-                          return rec.replace(/\s*\[.*?\]/g, '').trim();
-                        });
-                        
-                        // Remove first two points (Early signs and Slight drop)
-                        cleanedRecs = cleanedRecs.filter(rec => 
-                          !rec.startsWith('Early signs') && !rec.startsWith('Slight drop')
+                        // Anomaly stat next to badge
+                        pdf.setFont('helvetica', 'normal');
+                        pdf.setTextColor(...C.gray900);
+                        pdf.setFontSize(8.5);
+                        pdf.text(
+                          `${anomalyPct.toFixed(1)}% anomaly rate  •  ${totalAnomalies} flagged of ${totalSamples} samples`,
+                          M + bW + 5, y + 5.5
                         );
-                        
-                        // Add Zeflash and EVChamp recommendations
-                        cleanedRecs.push('EV users can utilize Zeflash\'s annual plans for regularly checking their EV\'s.');
-                        cleanedRecs.push('Go to EVChamp\'s service centers for Full Health Analysis of the EV & Battery issues fixing.');
+                        y += bH + 5;
 
-                        // Calculate box height
-                        const recCardX = margin;
-                        const recCardPadding = 3;
-                        let recBoxHeight = recCardPadding;
-                        const maxRecWidth = contentWidth - (2 * recCardPadding) - 8;
-                        
-                        for (const rec of cleanedRecs) {
-                          const lines = pdf.splitTextToSize(`• ${rec}`, maxRecWidth);
-                          recBoxHeight += (lines.length * 4) + 3;
-                        }
-                        recBoxHeight += recCardPadding;
+                        // Risk summary line (italic)
+                        pdf.setFont('helvetica', 'italic');
+                        pdf.setTextColor(...badgeFg);
+                        pdf.setFontSize(8.5);
+                        const riskLines = pdf.splitTextToSize(riskSummary, CW);
+                        riskLines.forEach((rl: string) => { pdf.text(rl, M, y); y += LINE_H; });
+                        pdf.setFont('helvetica', 'normal');
+                        y += 6;
 
-                        // Check if we need new page
-                        if (currentPosition + recBoxHeight > pageHeight - margin) {
-                          currentPosition = newPage();
-                        }
+                        // ── Recommended Actions ───────────────────────────
+                        if (y + 24 > PH - FOOTER_H - M) y = newPage();
+                        y = sectionHeading('Recommended Actions', y);
 
-                        // Draw recommendations card
-                        const recCardYStart = currentPosition;
-                        pdf.setDrawColor(30, 105, 210); // Deep blue border for recommendations
-                        pdf.setLineWidth(0.5);
-                        pdf.setFillColor(219, 234, 254); // Light blue background
-                        pdf.roundedRect(recCardX, recCardYStart, contentWidth, recBoxHeight, 2, 2, 'FD');
-                        
-                        // Add text with bullet points - highlighted
-                        pdf.setTextColor(0, 0, 0); // Black text for better visibility
-                        pdf.setFontSize(10);
-                        let yPos = recCardYStart + recCardPadding + 4;
-                        
-                        for (const rec of cleanedRecs) {
-                          const lines = pdf.splitTextToSize(`• ${rec}`, maxRecWidth);
-                          
-                          // Add subtle highlight behind each bullet point
-                          const bulletHeight = (lines.length * 4) + 2;
-                          pdf.setFillColor(219, 234, 254); // Light blue highlight (matching box background)
-                          pdf.rect(margin + 1, yPos - 3, contentWidth - 2, bulletHeight, 'F');
-                          
-                          pdf.setTextColor(33, 33, 33); // Dark gray
-                          
-                          for (const line of lines) {
-                            if (yPos > pageHeight - margin - 5) {
-                              currentPosition = newPage();
-                              yPos = margin + 5;
-                              pdf.setDrawColor(30, 105, 210); // Deep blue for nested items
-                              pdf.setFillColor(219, 234, 254); // Light blue for nested items
-                              pdf.roundedRect(recCardX, yPos - 3, contentWidth, recBoxHeight, 2, 2, 'FD');
-                            }
-                            pdf.text(line, margin + recCardPadding + 3, yPos);
-                            yPos += 4;
+                        let cleanedRecs = (reportModal.recommendations || [])
+                          .map((r: string) => r.replace(/\s*\[.*?\]/g, '').trim())
+                          .filter((r: string) => r.length > 0 && !r.startsWith('Early signs') && !r.startsWith('Slight drop'));
+                        cleanedRecs.push("Utilise Zeflash's annual plans for regular EV battery health checks.");
+                        cleanedRecs.push('Visit EVChamp service centres for full health analysis and battery issue resolution.');
+
+                        const recPad = 5;
+                        const maxW = CW - 2 * recPad - 6;
+
+                        for (let ri = 0; ri < cleanedRecs.length; ri++) {
+                          const wrappedLines: string[] = pdf.splitTextToSize(cleanedRecs[ri], maxW);
+                          const rowH = wrappedLines.length * LINE_H + 5;
+
+                          if (y + rowH + 4 > PH - FOOTER_H - M) {
+                            y = newPage();
+                            y = sectionHeading('Recommended Actions (cont.)', y);
                           }
-                          yPos += 1; // Space between bullet points
+
+                          // Alternating row background
+                          pdf.setFillColor(ri % 2 === 0 ? 248 : 241, ri % 2 === 0 ? 250 : 245, ri % 2 === 0 ? 252 : 255);
+                          pdf.rect(M, y, CW, rowH, 'F');
+                          // Bottom separator
+                          pdf.setDrawColor(...C.gray200);
+                          pdf.setLineWidth(0.2);
+                          pdf.line(M, y + rowH, M + CW, y + rowH);
+                          // Bullet dot
+                          pdf.setFillColor(...C.accent);
+                          pdf.circle(M + 3.5, y + rowH / 2, 1.3, 'F');
+                          // Text
+                          pdf.setTextColor(...C.gray900);
+                          pdf.setFontSize(8.5);
+                          wrappedLines.forEach((wl: string, li: number) => {
+                            pdf.text(wl, M + recPad + 3, y + 4 + li * LINE_H);
+                          });
+                          y += rowH;
                         }
-                        
-                        currentPosition = recCardYStart + recBoxHeight + 4;
+                        y += 9;
                       }
 
-                      // Add page break before metrics with styled header
-                      currentPosition = newPage();
-                      pdf.setTextColor(colors.sectionTitle[0], colors.sectionTitle[1], colors.sectionTitle[2]);
-                      pdf.setFontSize(12);
-                      pdf.text('Charging Session Metrics & Visuals', margin, currentPosition);
-                      pdf.setDrawColor(colors.divider[0], colors.divider[1], colors.divider[2]);
-                      pdf.setLineWidth(0.2);
-                      pdf.line(margin, currentPosition + 2.5, pageWidth - margin, currentPosition + 2.5);
-                      currentPosition += 6;
+                      // ── Metrics & Visuals ─────────────────────────────────
+                      y = newPage();
+                      y = sectionHeading('Charging Session Metrics & Visuals', y);
 
-                      // Capture report metrics
-                      const element = reportContentRef.current;
-                      const originalWidth = element.style.width;
-                      const originalHeight = element.style.height;
-                      const originalMaxHeight = element.parentElement?.style.maxHeight;
-                      
-                      // Temporarily expand to capture full content
-                      if (element.parentElement) {
-                        element.parentElement.style.maxHeight = 'none';
-                      }
-                      element.style.width = '297mm';
-                      element.style.height = 'auto';
+                      const metricsEl = reportContentRef.current!;
+                      const origW   = metricsEl.style.width;
+                      const origH   = metricsEl.style.height;
+                      const origMax = metricsEl.parentElement?.style.maxHeight;
+                      if (metricsEl.parentElement) metricsEl.parentElement.style.maxHeight = 'none';
+                      metricsEl.style.width  = '860px';
+                      metricsEl.style.height = 'auto';
+                      await new Promise(r => setTimeout(r, 1500));
 
-                      await new Promise(resolve => setTimeout(resolve, 1500));
-
-                      const canvas = await html2canvas(element, {
-                        scale: 2,
-                        logging: false,
-                        useCORS: true,
-                        allowTaint: true,
-                        backgroundColor: '#ffffff'
+                      const metricsCanvas = await html2canvas(metricsEl, {
+                        scale: 2, logging: false, useCORS: true, allowTaint: true, backgroundColor: '#ffffff'
                       });
 
-                      // Restore original dimensions
-                      element.style.width = originalWidth;
-                      element.style.height = originalHeight;
-                      if (element.parentElement) {
-                        element.parentElement.style.maxHeight = originalMaxHeight || '';
-                      }
+                      metricsEl.style.width  = origW;
+                      metricsEl.style.height = origH;
+                      if (metricsEl.parentElement) metricsEl.parentElement.style.maxHeight = origMax || '';
 
-                      const imgData = canvas.toDataURL('image/png');
-                      const imgHeight = (canvas.height * contentWidth) / canvas.width;
-                      let heightLeft = imgHeight;
+                      const mW      = CW;
+                      const mH      = (metricsCanvas.height * mW) / metricsCanvas.width;
+                      const availH  = () => PH - FOOTER_H - M - y;
+                      let mRendered = 0;
 
-                      // Add content pages
-                      while (heightLeft > 0) {
-                        const pageHeightAvailable = pageHeight - (2 * margin);
-                        
-                        if (currentPosition + heightLeft > pageHeight) {
-                          const heightToPrint = pageHeightAvailable - (currentPosition - margin);
-                          
-                          pdf.addImage(
-                            imgData,
-                            'PNG',
-                            margin,
-                            currentPosition,
-                            contentWidth,
-                            heightToPrint
-                          );
-                          
-                          heightLeft -= heightToPrint;
-                          // New page with chrome
-                          currentPosition = newPage();
-                          // Re-add section header on subsequent pages
-                          pdf.setTextColor(colors.sectionTitle[0], colors.sectionTitle[1], colors.sectionTitle[2]);
-                          pdf.setFontSize(12);
-                          pdf.text('Charging Session Metrics & Visuals', margin, currentPosition);
-                          pdf.setDrawColor(colors.divider[0], colors.divider[1], colors.divider[2]);
-                          pdf.setLineWidth(0.2);
-                          pdf.line(margin, currentPosition + 2.5, pageWidth - margin, currentPosition + 2.5);
-                          currentPosition += 6;
-                          
-                          if (heightLeft > 0) {
-                            // next loop will draw background via newPage() above
-                          }
-                        } else {
-                          pdf.addImage(imgData, 'PNG', margin, currentPosition, contentWidth, imgHeight);
-                          heightLeft = 0;
+                      while (mRendered < mH) {
+                        const slice = Math.min(availH(), mH - mRendered);
+                        const srcY  = (mRendered / mH) * metricsCanvas.height;
+                        const srcH  = (slice / mH) * metricsCanvas.height;
+
+                        const sliceC   = document.createElement('canvas');
+                        sliceC.width   = metricsCanvas.width;
+                        sliceC.height  = Math.ceil(srcH);
+                        const sliceCtx = sliceC.getContext('2d')!;
+                        sliceCtx.drawImage(metricsCanvas, 0, srcY, metricsCanvas.width, srcH, 0, 0, metricsCanvas.width, srcH);
+                        pdf.addImage(sliceC.toDataURL('image/png'), 'PNG', M, y, mW, slice);
+
+                        mRendered += slice;
+                        if (mRendered < mH) {
+                          y = newPage();
+                          y = sectionHeading('Charging Session Metrics & Visuals (cont.)', y);
                         }
                       }
 
-                      // Footer: add page numbers and attribution
+                      // ── Footers on every page ─────────────────────────────
                       const totalPages = pdf.getNumberOfPages();
-                      for (let i = 1; i <= totalPages; i++) {
-                        pdf.setPage(i);
-                        pdf.setTextColor(120);
-                        pdf.setFontSize(8);
-                        const footerText = `Generated by ZeFlash • Page ${i} of ${totalPages}`;
-                        pdf.text(footerText, margin, pageHeight - 4);
+                      for (let p = 1; p <= totalPages; p++) {
+                        pdf.setPage(p);
+                        drawFooter(p, totalPages);
                       }
 
-                      pdf.save(`Zeflash_Battery_Report_${reportModal.evseId}_${reportModal.connectorId}_${new Date().toISOString().slice(0, 10)}.pdf`);
+                      pdf.save(`Zeflash_Battery_Report_${reportModal.evseId}_C${reportModal.connectorId}_${new Date().toISOString().slice(0, 10)}.pdf`);
                     } catch (error) {
                       console.error('Error generating PDF:', error);
                       alert('Failed to generate PDF. Please try again.');
