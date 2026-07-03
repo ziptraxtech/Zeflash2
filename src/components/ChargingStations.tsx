@@ -184,10 +184,10 @@ const ChargingStations: React.FC = () => {
   const reportContentRef = useRef<HTMLDivElement>(null);
   const aiImageContainerRef = useRef<HTMLDivElement>(null);
 
-  // Show coupon banner on every page load (dismissible per view only)
-  useEffect(() => {
-    setShowCouponBanner(true);
-  }, []);
+  // Coupon banner disabled - users go directly to stations page
+  // useEffect(() => {
+  //   setShowCouponBanner(true);
+  // }, []);
 
   // Debug logging for recommendations
   useEffect(() => {
