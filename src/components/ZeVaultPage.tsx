@@ -139,15 +139,21 @@ const ZeVaultPage: React.FC = () => {
               <ArrowLeft size={16} />
               Back
             </button>
-            <div>
-              <h1 className="text-lg sm:text-xl font-semibold text-white flex items-center gap-2">
-                <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-indigo-500">
-                  <Zap size={16} className="text-yellow-300" />
-                </span>
-                ZeVault
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-400">Your EV battery health credits, all in one secure vault.</p>
-            </div>
+            <Link
+              to="/"
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer"
+              title="Back to landing page"
+            >
+              <div>
+                <h1 className="text-lg sm:text-xl font-semibold text-white flex items-center gap-2">
+                  <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-indigo-500">
+                    <Zap size={16} className="text-yellow-300" />
+                  </span>
+                  ZeVault
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-400">Your EV battery health credits, all in one secure vault.</p>
+              </div>
+            </Link>
           </div>
           <Link
             to="/stations"

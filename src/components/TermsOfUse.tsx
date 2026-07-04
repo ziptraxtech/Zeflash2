@@ -8,7 +8,7 @@ export default function TermsOfUse() {
       <header className="bg-gradient-to-br from-gray-800 via-gray-900 to-blue-900 text-white py-6 sticky top-0 z-10 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between">
-            <Link to="/" className="flex items-center gap-2">
+            <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity" title="Back to landing page">
               <div className="p-2 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600">
                 <Zap className="text-white" size={24} />
               </div>

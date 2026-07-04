@@ -4,26 +4,81 @@ import { Zap, Zap as Bolt, Play, CheckCircle, Microscope, Cpu, Battery, Download
 import { SignUpButton, SignedIn, SignedOut, UserButton } from '@clerk/clerk-react';
 import CreditsWallet from './CreditsWallet';
 
-const SectionLink: React.FC<{ href: string; label: string; active?: boolean }> = ({ href, label, active }) => (
-  <a
-    href={href}
-    aria-current={active ? 'page' : undefined}
-    className={
-      `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ` +
-      (active
-        ? 'bg-blue-600 text-white shadow-sm'
-        : 'text-gray-700 hover:text-blue-700 hover:bg-blue-50')
+const SectionLink: React.FC<{ href: string; label: string; active?: boolean }> = ({ href, label, active }) => {
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    // Get the section ID from the href (e.g., "#what" -> "what")
+    const sectionId = href.substring(1);
+    const sectionElement = document.getElementById(sectionId);
+    
+    if (sectionElement) {
+      // If we're on the landing page and element exists, scroll to it
+      e.preventDefault();
+      sectionElement.scrollIntoView({ behavior: 'smooth' });
     }
-  >
-    {label}
-  </a>
-);
+    // If we're not on the landing page, the default link behavior will take us there
+  };
+  
+  return (
+    <a
+      href={href}
+      onClick={handleClick}
+      aria-current={active ? 'page' : undefined}
+      className={
+        `px-3 py-1.5 rounded-md text-sm font-medium transition-colors ` +
+        (active
+          ? 'bg-blue-600 text-white shadow-sm'
+          : 'text-gray-700 hover:text-blue-700 hover:bg-blue-50')
+      }
+    >
+      {label}
+    </a>
+  );
+};
 
 const ZeflashLanding: React.FC = () => {
   const topRef = useRef<HTMLDivElement | null>(null);
   const [activeSection, setActiveSection] = useState<string>('');
+  const [backPressCount, setBackPressCount] = useState<number>(0);
+  const [showExitConfirm, setShowExitConfirm] = useState<boolean>(false);
+  const backPressTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const apkDownloadUrl = 'https://www.indusappstore.com/apps/auto-and-vehicles/zeflash/com.ziptraxtech.zeflash/?page=details&id=com.ziptraxtech.zeflash';
+
+  // Handle back button press
+  const handleBackPress = () => {
+    const currentCount = backPressCount + 1;
+    setBackPressCount(currentCount);
+
+    if (currentCount === 1) {
+      // First back press: scroll to top
+      topRef.current?.scrollIntoView({ behavior: 'smooth' });
+      
+      // Reset count after 2 seconds of inactivity
+      if (backPressTimeoutRef.current) {
+        clearTimeout(backPressTimeoutRef.current);
+      }
+      backPressTimeoutRef.current = setTimeout(() => {
+        setBackPressCount(0);
+      }, 2000);
+    } else if (currentCount >= 2) {
+      // Second back press: show exit confirmation
+      setShowExitConfirm(true);
+      if (backPressTimeoutRef.current) {
+        clearTimeout(backPressTimeoutRef.current);
+      }
+    }
+  };
+
+  // Handle exit confirmation
+  const handleExit = () => {
+    // Navigate back or close
+    window.history.back();
+  };
+
+  const handleStay = () => {
+    setShowExitConfirm(false);
+    setBackPressCount(0);
+  };
 
   useEffect(() => {
     const sectionIds = ['what', 'features', 'how', 'science', 'metrics', 'who', 'why'];
@@ -51,8 +106,22 @@ const ZeflashLanding: React.FC = () => {
 
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+
+    // Add back button handler for both popstate and Android back button
+    const handlePopState = () => {
+      handleBackPress();
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('popstate', handlePopState);
+      if (backPressTimeoutRef.current) {
+        clearTimeout(backPressTimeoutRef.current);
+      }
+    };
+  }, [backPressCount]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-blue-50/50 text-gray-900">
@@ -572,6 +641,39 @@ const ZeflashLanding: React.FC = () => {
           </div>
         </div>
       </footer>
+
+      {/* Exit Confirmation Modal */}
+      {showExitConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="rounded-2xl border border-gray-200 bg-white shadow-2xl max-w-sm w-full p-6 sm:p-8 animate-in fade-in zoom-in-95 duration-200">
+            <div className="text-center">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
+                <svg className="h-6 w-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4v2m0 0v2m0-6v-2m0 0V7m0 6h2m-4 0h-2m4 0h2m-6-2h2m-4 0h2" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Exit Zeflash?</h3>
+              <p className="text-gray-600 text-sm mb-6">
+                Are you sure you want to leave? You can always come back anytime to explore our EV battery diagnostics platform.
+              </p>
+            </div>
+            <div className="flex flex-col-reverse sm:flex-row gap-3">
+              <button
+                onClick={handleStay}
+                className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-center font-semibold text-gray-900 hover:bg-gray-50 transition-colors"
+              >
+                Stay Here
+              </button>
+              <button
+                onClick={handleExit}
+                className="rounded-lg bg-gradient-to-r from-amber-500 to-orange-600 px-4 py-2.5 text-center font-semibold text-white hover:from-amber-600 hover:to-orange-700 transition-all"
+              >
+                Exit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

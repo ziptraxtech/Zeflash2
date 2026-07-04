@@ -63,47 +63,68 @@ const PlanCheckout: React.FC = () => {
         break;
       case 'trial':
         details = {
-          name: 'First Time Trial',
+          name: 'One Time Trial',
           tests: 1,
           validity: 0,
-          pricePerTest: 299,
-          totalPrice: 299,
+          pricePerTest: 200,
+          totalPrice: 200,
           features: [
             '1 complete 20-min diagnostic',
             'Instant health report',
             'PDF download',
-            'Basic recommendations'
+            'Basic recommendations',
+            'No credit card required'
           ]
         };
         break;
       case 'starter':
         details = {
           name: 'Starter Pack',
-          tests: 4,
+          tests: 6,
           validity: 12,
           pricePerTest: 250,
-          totalPrice: 999,
+          totalPrice: 1500,
           features: [
-            '4 AI diagnostic tests',
+            '6 AI diagnostic tests',
             '1 year validity',
             'Trend analysis',
-            'Email support'
+            'Email support',
+            'Monthly health check-ins',
+            'Easy renewal option'
           ]
         };
         break;
       case 'value':
         details = {
           name: 'Value Pack',
-          tests: 8,
+          tests: 12,
           validity: 12,
-          pricePerTest: 187,
-          totalPrice: 1499,
+          pricePerTest: 250,
+          totalPrice: 3000,
           features: [
-            '8 AI diagnostic tests',
+            '12 AI diagnostic tests',
             '1 year validity',
+            'Priority support',
+            'Quarterly performance reports',
+            'Free battery optimization tips'
+          ]
+        };
+        break;
+      case 'smart':
+        details = {
+          name: 'Smart Pack',
+          tests: 24,
+          validity: 24,
+          pricePerTest: 250,
+          totalPrice: 6000,
+          features: [
+            '24 AI diagnostic tests',
+            '2 years validity',
             'Priority scheduling',
             'Advanced insights',
-            'Priority support'
+            'Priority support',
+            'Quarterly performance reports',
+            'Free battery optimization tips'
           ]
         };
         break;

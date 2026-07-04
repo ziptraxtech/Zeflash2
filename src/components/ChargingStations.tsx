@@ -183,6 +183,25 @@ const ChargingStations: React.FC = () => {
   });
   const reportContentRef = useRef<HTMLDivElement>(null);
   const aiImageContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Data collection modal state
+  const [dataCollectionModal, setDataCollectionModal] = useState<{
+    open: boolean;
+    type: 'precision' | 'fnr' | null;
+    formData: {
+      name: string;
+      email: string;
+      contact: string;
+    };
+  }>({
+    open: false,
+    type: null,
+    formData: {
+      name: '',
+      email: '',
+      contact: ''
+    }
+  });
 
   // Coupon banner disabled - users go directly to stations page
   // useEffect(() => {
@@ -845,12 +864,16 @@ const ChargingStations: React.FC = () => {
               >
                 <ArrowLeft className="w-5 h-5 text-blue-700" />
               </Link>
-              <div className="flex items-center gap-2">
+              <Link
+                to="/"
+                className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                title="Back to landing page"
+              >
                 <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
                   <span className="text-white font-bold text-base">⚡</span>
                 </div>
                 <h1 className="text-2xl font-extrabold text-blue-900 tracking-tight">Zeflash</h1>
-              </div>
+              </Link>
             </div>
             
             {/* Credits Wallet */}
@@ -927,16 +950,21 @@ const ChargingStations: React.FC = () => {
               <div className="text-xs text-emerald-700 font-semibold">ML Accuracy</div>
               <div className="text-3xl font-extrabold text-emerald-700 mt-1">94.66%</div>
             </div>
-            <div className="p-4 rounded-xl bg-violet-50 border border-violet-100 hover:bg-violet-100 transition-colors text-center">
-              <div className="text-xs text-violet-700 font-semibold">Precision</div>
-              <div className="text-xs text-violet-600 mt-1">[Excellent True Positives]</div>
-              <div className="text-2xl font-extrabold text-violet-700 mt-2">91.8%</div>
-            </div>
-            <div className="p-4 rounded-xl bg-orange-50 border border-orange-100 hover:bg-orange-100 transition-colors text-center">
-              <div className="text-xs text-orange-700 font-semibold">False Negative Rate</div>
-              <div className="text-xs text-orange-600 mt-1">[Low Misdetection]</div>
-              <div className="text-2xl font-extrabold text-orange-700 mt-2">6.1%</div>
-            </div>
+            <button
+              onClick={() => setDataCollectionModal({ open: true, type: 'precision', formData: { name: '', email: '', contact: '' } })}
+              className="p-4 rounded-xl bg-violet-50 border border-violet-100 hover:bg-violet-100 transition-colors text-center cursor-pointer"
+            >
+              <div className="text-xs font-extrabold text-violet-700 font-semibold">Offers</div>
+              <div className="text-2xl font-extrabold text-violet-600 mt-1">[Click to get exciting offers]</div>
+              
+            </button>
+            <button
+              onClick={() => window.open('https://evchamp.in/', '_blank')}
+              className="p-4 rounded-xl bg-blue-50 border border-blue-100 hover:bg-blue-100 transition-colors text-center cursor-pointer"
+            >
+              <div className="text-xs text-blue-700 font-semibold">EVChamp</div>
+              <div className="text-2xl font-extrabold text-blue-600 mt-1">[Your EV Vehicle Companion]</div>
+            </button>
           </div>
 
         {/* Search and Filter Section */}
@@ -2290,6 +2318,123 @@ const ChargingStations: React.FC = () => {
                 className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold rounded-lg transition-all shadow-lg hover:shadow-xl"
               >
                 Pay & Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Data Collection Modal for Offers & False Negative Rate */}
+      {dataCollectionModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+            {/* Header */}
+            <div className={`p-6 text-white ${dataCollectionModal.type === 'precision' ? 'bg-gradient-to-r from-purple-600 to-purple-700' : 'bg-gradient-to-r from-orange-600 to-orange-700'}`}>
+              <h2 className="text-2xl font-bold">
+                {dataCollectionModal.type === 'precision' ? '🎁 Exclusive Offers' : '🎯 False Negative Rate'}
+              </h2>
+              <p className="text-sm mt-2 text-white/90">
+                {dataCollectionModal.type === 'precision' 
+                  ? 'Get exclusive offers and discounts on Zeflash premium plans' 
+                  : 'Help us reduce false detections and improve reliability'}
+              </p>
+            </div>
+
+            {/* Form Content */}
+            <div className="p-6 space-y-4">
+              {/* Name Field */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Full Name *</label>
+                <input
+                  type="text"
+                  placeholder="Your name"
+                  value={dataCollectionModal.formData.name}
+                  onChange={(e) => setDataCollectionModal(prev => ({
+                    ...prev,
+                    formData: { ...prev.formData, name: e.target.value }
+                  }))}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                />
+              </div>
+
+              {/* Email Field */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address *</label>
+                <input
+                  type="email"
+                  placeholder="your@email.com"
+                  value={dataCollectionModal.formData.email}
+                  onChange={(e) => setDataCollectionModal(prev => ({
+                    ...prev,
+                    formData: { ...prev.formData, email: e.target.value }
+                  }))}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                />
+              </div>
+
+              {/* Contact Field (Optional) */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Contact Number <span className="text-xs text-gray-500">(Optional)</span></label>
+                <input
+                  type="tel"
+                  placeholder="+91 XXXXX XXXXX"
+                  value={dataCollectionModal.formData.contact}
+                  onChange={(e) => setDataCollectionModal(prev => ({
+                    ...prev,
+                    formData: { ...prev.formData, contact: e.target.value }
+                  }))}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                />
+              </div>
+
+              {/* Info Box */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
+                <p className="font-semibold mb-1">🎁 Special Offer</p>
+                <p className="text-xs">{dataCollectionModal.type === 'precision' 
+                  ? 'Share your details to unlock exclusive discounts on premium Zeflash plans and special offers.' 
+                  : 'We collect this information to understand our model performance and contact you with insights. Your data won\'t be shared.'}</p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-gray-200 flex gap-3">
+              <button
+                onClick={() => setDataCollectionModal({ open: false, type: null, formData: { name: '', email: '', contact: '' } })}
+                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-semibold hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  // Validate required fields
+                  if (!dataCollectionModal.formData.name.trim() || !dataCollectionModal.formData.email.trim()) {
+                    alert('Please fill in all required fields');
+                    return;
+                  }
+                  
+                  // Log the data (in production, send to backend)
+                  console.log(`📋 ${dataCollectionModal.type === 'precision' ? 'Exclusive Offers' : 'False Negative Rate'} Signup:`, {
+                    type: dataCollectionModal.type,
+                    name: dataCollectionModal.formData.name,
+                    email: dataCollectionModal.formData.email,
+                    contact: dataCollectionModal.formData.contact || 'Not provided'
+                  });
+                  
+                  // Show success message
+                  alert(dataCollectionModal.type === 'precision' 
+                    ? '🎉 Thank you! Check your email for exclusive offers.' 
+                    : 'Thank you for your feedback! We appreciate your insights.');
+                  
+                  // Close modal
+                  setDataCollectionModal({ open: false, type: null, formData: { name: '', email: '', contact: '' } });
+                }}
+                className={`flex-1 px-4 py-2.5 rounded-lg text-white font-semibold transition-all ${
+                  dataCollectionModal.type === 'precision'
+                    ? 'bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800'
+                    : 'bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800'
+                }`}
+              >
+                {dataCollectionModal.type === 'precision' ? 'Unlock Offers' : 'Submit Feedback'}
               </button>
             </div>
           </div>
