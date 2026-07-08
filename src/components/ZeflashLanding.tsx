@@ -40,6 +40,7 @@ const ZeflashLanding: React.FC = () => {
   const [activeSection, setActiveSection] = useState<string>('');
   const [backPressCount, setBackPressCount] = useState<number>(0);
   const [showExitConfirm, setShowExitConfirm] = useState<boolean>(false);
+  const [offerClaimed, setOfferClaimed] = useState<boolean>(false);
   const backPressTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const apkDownloadUrl = 'https://www.indusappstore.com/apps/auto-and-vehicles/zeflash/com.ziptraxtech.zeflash/?page=details&id=com.ziptraxtech.zeflash';
@@ -78,6 +79,22 @@ const ZeflashLanding: React.FC = () => {
   const handleStay = () => {
     setShowExitConfirm(false);
     setBackPressCount(0);
+  };
+
+  // Handle offer claim - one time use per user
+  const handleClaimOffer = () => {
+    const claimedOffers = JSON.parse(localStorage.getItem('zeflash_claimed_offers') || '[]');
+    
+    // Mark offer as claimed in localStorage
+    localStorage.setItem('zeflash_claimed_offers', JSON.stringify([...claimedOffers, 'early_adopter_50_off']));
+    setOfferClaimed(true);
+  };
+
+  // Check if offer has already been claimed
+  const isOfferAlreadyClaimed = () => {
+    if (typeof window === 'undefined') return false;
+    const claimedOffers = JSON.parse(localStorage.getItem('zeflash_claimed_offers') || '[]');
+    return claimedOffers.includes('early_adopter_50_off');
   };
 
   useEffect(() => {
@@ -122,6 +139,13 @@ const ZeflashLanding: React.FC = () => {
       }
     };
   }, [backPressCount]);
+
+  useEffect(() => {
+    // Check if offer has been claimed on component mount
+    if (isOfferAlreadyClaimed()) {
+      setOfferClaimed(true);
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-blue-50/50 text-gray-900">
@@ -367,33 +391,314 @@ const ZeflashLanding: React.FC = () => {
       </section>
 
       {/* Features */}
-      <section id="features" className="py-12 sm:py-16 bg-gradient-to-b from-blue-50 to-white">
+      <section id="features" className="py-16 sm:py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-6">Core Features</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            <div className="rounded-xl border border-gray-200 bg-white p-6 transition-all hover:shadow-lg hover:-translate-y-0.5">
-              <div className="flex items-center gap-2 text-blue-700 font-semibold"><Bolt size={18} /> Rapid Flash Testing</div>
-              <p className="mt-2 text-gray-700">Get real-time diagnostic scans that capture your battery's true energy output and internal efficiency — all within minutes.</p>
+          {/* Section Header */}
+          <div className="mb-12 sm:mb-16">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 mb-3">Core Features</h2>
+            <p className="text-lg sm:text-xl text-gray-600 max-w-3xl">
+              Advanced diagnostic technology that brings lab-grade EV battery analysis to charging stations worldwide
+            </p>
+          </div>
+
+          {/* Features Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
+            {/* Feature 1: Rapid Flash Testing */}
+            <article className="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-8 transition-all duration-300 hover:border-blue-300 hover:shadow-xl hover:shadow-blue-100/50 hover:-translate-y-1">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-blue-100 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-full -mr-12 -mt-12"></div>
+              
+              <div className="relative z-10">
+                {/* Icon Container */}
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center text-white mb-4 group-hover:shadow-lg group-hover:shadow-blue-600/30 transition-all">
+                  <Bolt size={24} aria-hidden="true" />
+                </div>
+
+                {/* Feature Title */}
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Rapid Flash Testing</h3>
+                
+                {/* Feature Description */}
+                <p className="text-gray-600 leading-relaxed mb-4">
+                  Get real-time diagnostic scans that capture your battery's true energy output and internal efficiency — all within minutes. No disassembly required.
+                </p>
+
+                {/* Feature Highlight */}
+                <div className="text-sm font-semibold text-blue-700 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                  <CheckCircle size={16} /> Results in under 5 minutes
+                </div>
+              </div>
+            </article>
+
+            {/* Feature 2: Multi-Signal Scanning */}
+            <article className="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-8 transition-all duration-300 hover:border-amber-300 hover:shadow-xl hover:shadow-amber-100/50 hover:-translate-y-1">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-amber-100 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-full -mr-12 -mt-12"></div>
+              
+              <div className="relative z-10">
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-amber-600 to-amber-700 flex items-center justify-center text-white mb-4 group-hover:shadow-lg group-hover:shadow-amber-600/30 transition-all">
+                  <Microscope size={24} aria-hidden="true" />
+                </div>
+
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Multi-Signal Scanning</h3>
+                
+                <p className="text-gray-600 leading-relaxed mb-4">
+                  Go beyond surface readings. Integrates current signals, temperature, impedance, and multiple parameters to detect early degradation and unsafe charging patterns.
+                </p>
+
+                <div className="text-sm font-semibold text-amber-700 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                  <CheckCircle size={16} /> 50+ data parameters analyzed
+                </div>
+              </div>
+            </article>
+
+            {/* Feature 3: AI + Digital Twin */}
+            <article className="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-8 transition-all duration-300 hover:border-purple-300 hover:shadow-xl hover:shadow-purple-100/50 hover:-translate-y-1">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-purple-100 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-full -mr-12 -mt-12"></div>
+              
+              <div className="relative z-10">
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-purple-600 to-purple-700 flex items-center justify-center text-white mb-4 group-hover:shadow-lg group-hover:shadow-purple-600/30 transition-all">
+                  <Cpu size={24} aria-hidden="true" />
+                </div>
+
+                <h3 className="text-xl font-bold text-gray-900 mb-2">AI + Digital Twin Intelligence</h3>
+                
+                <p className="text-gray-600 leading-relaxed mb-4">
+                  Physics-based machine learning predicts battery lifespan, efficiency degradation, and early failure trends with industry-leading precision.
+                </p>
+
+                <div className="text-sm font-semibold text-purple-700 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                  <CheckCircle size={16} /> 94.66% Overall Accuracy
+                </div>
+              </div>
+            </article>
+
+            {/* Feature 4: Portable & On-Site */}
+            <article className="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-8 transition-all duration-300 hover:border-green-300 hover:shadow-xl hover:shadow-green-100/50 hover:-translate-y-1">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-green-100 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-full -mr-12 -mt-12"></div>
+              
+              <div className="relative z-10">
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-green-600 to-green-700 flex items-center justify-center text-white mb-4 group-hover:shadow-lg group-hover:shadow-green-600/30 transition-all">
+                  <Battery size={24} aria-hidden="true" />
+                </div>
+
+                <h3 className="text-xl font-bold text-gray-900 mb-2">On-Site Battery Analysis</h3>
+                
+                <p className="text-gray-600 leading-relaxed mb-4">
+                  Compact, rugged, and field-ready — brings lab-grade diagnostics directly to EV charging stations without complex infrastructure.
+                </p>
+
+                <div className="text-sm font-semibold text-green-700 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                  <CheckCircle size={16} /> Deployed globally
+                </div>
+              </div>
+            </article>
+
+            {/* Feature 5: Comprehensive Benchmarking */}
+            <article className="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-8 transition-all duration-300 hover:border-red-300 hover:shadow-xl hover:shadow-red-100/50 hover:-translate-y-1">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-red-100 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-full -mr-12 -mt-12"></div>
+              
+              <div className="relative z-10">
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-red-600 to-red-700 flex items-center justify-center text-white mb-4 group-hover:shadow-lg group-hover:shadow-red-600/30 transition-all">
+                  <Download size={24} aria-hidden="true" />
+                </div>
+
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Comprehensive Benchmarking</h3>
+                
+                <p className="text-gray-600 leading-relaxed mb-4">
+                  Industry-standard benchmarking across battery chemistries and manufacturers ensures consistent, traceable results for certification and resale value.
+                </p>
+
+                <div className="text-sm font-semibold text-red-700 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                  <CheckCircle size={16} /> Certified & Traceable
+                </div>
+              </div>
+            </article>
+
+            {/* Feature 6: Instant Health Reports */}
+            <article className="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white p-8 transition-all duration-300 hover:border-cyan-300 hover:shadow-xl hover:shadow-cyan-100/50 hover:-translate-y-1">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-cyan-100 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-full -mr-12 -mt-12"></div>
+              
+              <div className="relative z-10">
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-cyan-600 to-cyan-700 flex items-center justify-center text-white mb-4 group-hover:shadow-lg group-hover:shadow-cyan-600/30 transition-all">
+                  <Store size={24} aria-hidden="true" />
+                </div>
+
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Instant Health Reports</h3>
+                
+                <p className="text-gray-600 leading-relaxed mb-4">
+                  Clear, visual diagnostic reports including State of Power (SoP), State of Function (SoF), accuracy metrics, efficiency variance, and actionable recommendations.
+                </p>
+
+                <div className="text-sm font-semibold text-cyan-700 flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                  <CheckCircle size={16} /> Download instantly
+                </div>
+              </div>
+            </article>
+          </div>
+
+          {/* CTA Section */}
+          <div className="mt-16 text-center">
+            <p className="text-gray-600 text-lg mb-6">
+              Ready to experience advanced EV battery diagnostics?
+            </p>
+            <Link
+              to="/charging-stations"
+              className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-8 py-3 text-white font-semibold hover:from-blue-700 hover:to-blue-800 transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5"
+              aria-label="Find Zeflash-enabled charging stations near you"
+            >
+              <Zap size={20} aria-hidden="true" />
+              Find Charging Stations
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Limited Time Offer Banner */}
+      <section className="py-12 sm:py-20 relative overflow-hidden">
+        {/* Animated background gradients */}
+        <div className="absolute inset-0 -z-10">
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-gradient-to-br from-emerald-400/40 via-green-400/20 to-transparent blur-3xl animate-pulse" />
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-gradient-to-tl from-blue-400/40 via-cyan-400/20 to-transparent blur-3xl animate-pulse" />
+        </div>
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          {/* Badge */}
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-100 to-green-100 px-4 py-2 mb-6">
+              <span className="text-2xl">🎉</span>
+              <span className="text-sm font-bold text-emerald-800">Exclusive Launch Offer</span>
             </div>
-            <div className="rounded-xl border border-gray-200 bg-white p-6 transition-all hover:shadow-lg hover:-translate-y-0.5">
-              <div className="flex items-center gap-2 text-blue-700 font-semibold"><ActivityIcon /> Multi-Signal Scanning</div>
-              <p className="mt-2 text-gray-700">Go beyond surface readings. Integrates current signals, temperature, impedance and multiple parameters to detect early degradation and unsafe charging.</p>
+          </div>
+
+          {/* Main Offer Card */}
+          <div className="bg-gradient-to-br from-white via-blue-50/30 to-emerald-50/30 rounded-3xl border border-gradient-to-r from-emerald-200 to-blue-200 p-8 sm:p-12 shadow-2xl relative overflow-hidden">
+            {/* Decorative elements */}
+            <div className="absolute -top-20 -right-20 w-64 h-64 bg-gradient-to-br from-emerald-300/20 to-transparent blur-3xl rounded-full pointer-events-none" />
+            <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-gradient-to-tr from-blue-300/20 to-transparent blur-3xl rounded-full pointer-events-none" />
+
+            <div className="relative z-10">
+              <div className="max-w-2xl">
+                {/* Left side - Offer details */}
+                <div>
+                  <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
+                    Early Adopter Special
+                  </h2>
+                  <p className="text-lg text-gray-700 mb-6">
+                    First-time users get <span className="font-bold text-emerald-600">50% off your first diagnostic test</span> when you sign up today!
+                  </p>
+
+                  <div className="space-y-3 mb-8">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold text-sm mt-1">
+                        ✓
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900">20-Minute Rapid AI Test</p>
+                        <p className="text-sm text-gray-600">Complete battery health analysis while you charge</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold text-sm mt-1">
+                        ✓
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900">Instant Health Report</p>
+                        <p className="text-sm text-gray-600">State of Power, Function, and safety metrics—downloadable instantly</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold text-sm mt-1">
+                        ✓
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900">No Hidden Charges</p>
+                        <p className="text-sm text-gray-600">Transparent pricing with flexible monthly plans</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* CTA Buttons */}
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    {!offerClaimed ? (
+                      <>
+                        <SignedOut>
+                          <SignUpButton mode="modal">
+                            <button 
+                              onClick={handleClaimOffer}
+                              className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold px-6 py-3 hover:from-emerald-600 hover:to-green-700 shadow-lg shadow-emerald-200/40 transition-all hover:-translate-y-0.5"
+                            >
+                              <span>Claim 50% Off Now</span>
+                              <span aria-hidden>→</span>
+                            </button>
+                          </SignUpButton>
+                        </SignedOut>
+                        <SignedIn>
+                          <button
+                            onClick={handleClaimOffer}
+                            className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold px-6 py-3 hover:from-emerald-600 hover:to-green-700 shadow-lg shadow-emerald-200/40 transition-all hover:-translate-y-0.5"
+                          >
+                            <span>Claim 50% Off Now</span>
+                            <span aria-hidden>→</span>
+                          </button>
+                        </SignedIn>
+                      </>
+                    ) : (
+                      <div className="inline-flex items-center justify-center gap-2 rounded-lg bg-gray-100 text-gray-600 font-bold px-6 py-3 border-2 border-gray-300 cursor-not-allowed">
+                        <span>✓ Offer Already Claimed</span>
+                      </div>
+                    )}
+                    <SignedIn>
+                      <Link
+                        to="/plans"
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold px-6 py-3 hover:from-blue-600 hover:to-indigo-700 shadow-lg shadow-blue-200/40 transition-all hover:-translate-y-0.5"
+                      >
+                        <span>View Plans</span>
+                        <span aria-hidden>→</span>
+                      </Link>
+                    </SignedIn>
+                    <Link
+                      to="/stations"
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border-2 border-emerald-500 text-emerald-600 font-bold px-6 py-3 hover:bg-emerald-50 transition-all"
+                    >
+                      <span>Find Stations</span>
+                    </Link>
+                  </div>
+
+                  {/* Offer validity */}
+                  {!offerClaimed ? (
+                    <p className="text-xs text-gray-500 mt-6">
+                      <span className="font-semibold">Offer valid</span> for new users signing up in the next 30 days. Terms & conditions apply.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-emerald-600 mt-6 font-semibold">
+                      ✓ Congratulations! Your 50% discount has been claimed. You can use it on your first diagnostic test.
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
-            <div className="rounded-xl border border-gray-200 bg-white p-6 transition-all hover:shadow-lg hover:-translate-y-0.5">
-              <div className="flex items-center gap-2 text-blue-700 font-semibold"><Cpu size={18} /> AI + Digital Twin Intelligence</div>
-              <p className="mt-2 text-gray-700">Physics-based machine learning predicts lifespan, efficiency, and early failure trends with high precision.</p>
+          </div>
+
+          {/* Trust indicators */}
+          <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="text-center p-6 bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-100 text-blue-600 mb-3 text-xl">
+                🔬
+              </div>
+              <p className="font-semibold text-gray-900 mb-1">Lab-Grade Accuracy</p>
+              <p className="text-sm text-gray-600">94.66% accuracy with AI-powered diagnostics</p>
             </div>
-            <div className="rounded-xl border border-gray-200 bg-white p-6 transition-all hover:shadow-lg hover:-translate-y-0.5">
-              <div className="flex items-center gap-2 text-blue-700 font-semibold"><Battery size={18} /> Portable Analysis at EV Chargers</div>
-              <p className="mt-2 text-gray-700">Compact, rugged, and easy to use — brings lab-grade diagnostics to the charging station.</p>
+            <div className="text-center p-6 bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-100 text-green-600 mb-3 text-xl">
+                ⚡
+              </div>
+              <p className="font-semibold text-gray-900 mb-1">20 Minutes</p>
+              <p className="text-sm text-gray-600">Complete results while you charge your EV</p>
             </div>
-            <div className="rounded-xl border border-gray-200 bg-white p-6 transition-all hover:shadow-lg hover:-translate-y-0.5">
-              <div className="flex items-center gap-2 text-blue-700 font-semibold"><Microscope size={18} /> Benchmark & Traceability</div>
-              <p className="mt-2 text-gray-700">Benchmarks across chemistries and manufacturers to enable consistent, traceable results for certification and resale.</p>
-            </div>
-            <div className="rounded-xl border border-gray-200 bg-white p-6 transition-all hover:shadow-lg hover:-translate-y-0.5">
-              <div className="flex items-center gap-2 text-blue-700 font-semibold"><FileIcon /> Instant Health Report</div>
-              <p className="mt-2 text-gray-700">Clear, visual reports including SoP, SoF, Accuracy %, Efficiency variance, range loss estimate, and recommendations.</p>
+            <div className="text-center p-6 bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 mb-3 text-xl">
+                📊
+              </div>
+              <p className="font-semibold text-gray-900 mb-1">Actionable Insights</p>
+              <p className="text-sm text-gray-600">Detailed reports with safety recommendations</p>
             </div>
           </div>
         </div>
@@ -677,8 +982,5 @@ const ZeflashLanding: React.FC = () => {
     </div>
   );
 };
-
-const ActivityIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>;
-const FileIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>;
 
 export default ZeflashLanding;
