@@ -348,6 +348,159 @@ const ZeflashLanding: React.FC = () => {
         </div>
       </section>
 
+      {/* Limited Time Offer Banner */}
+      <section className="py-12 sm:py-20 relative overflow-hidden">
+        {/* Animated background gradients */}
+        <div className="absolute inset-0 -z-10">
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-gradient-to-br from-emerald-400/40 via-green-400/20 to-transparent blur-3xl animate-pulse" />
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-gradient-to-tl from-blue-400/40 via-cyan-400/20 to-transparent blur-3xl animate-pulse" />
+        </div>
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          {/* Badge */}
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-100 to-green-100 px-4 py-2 mb-6">
+              <span className="text-2xl">🎉</span>
+              <span className="text-sm font-bold text-emerald-800">Exclusive Launch Offer</span>
+            </div>
+          </div>
+
+          {/* Main Offer Card */}
+          <div className="bg-gradient-to-br from-white via-blue-50/30 to-emerald-50/30 rounded-3xl border border-gradient-to-r from-emerald-200 to-blue-200 p-8 sm:p-12 shadow-2xl relative overflow-hidden">
+            {/* Decorative elements */}
+            <div className="absolute -top-20 -right-20 w-64 h-64 bg-gradient-to-br from-emerald-300/20 to-transparent blur-3xl rounded-full pointer-events-none" />
+            <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-gradient-to-tr from-blue-300/20 to-transparent blur-3xl rounded-full pointer-events-none" />
+
+            <div className="relative z-10">
+              <div className="max-w-2xl">
+                {/* Left side - Offer details */}
+                <div>
+                  <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
+                    Early Adopter Special
+                  </h2>
+                  <p className="text-lg text-gray-700 mb-6">
+                    First-time users get <span className="font-bold text-emerald-600">50% off your first diagnostic test</span> when you sign up today!
+                  </p>
+
+                  <div className="space-y-3 mb-8">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold text-sm mt-1">
+                        ✓
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900">20-Minute Rapid AI Test</p>
+                        <p className="text-sm text-gray-600">Complete battery health analysis while you charge</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold text-sm mt-1">
+                        ✓
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900">Instant Health Report</p>
+                        <p className="text-sm text-gray-600">State of Power, Function, and safety metrics—downloadable instantly</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold text-sm mt-1">
+                        ✓
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900">No Hidden Charges</p>
+                        <p className="text-sm text-gray-600">Transparent pricing with flexible monthly plans</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* CTA Buttons */}
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    {!offerClaimed ? (
+                      <>
+                        <SignedOut>
+                          <SignUpButton mode="modal">
+                            <button 
+                              onClick={handleClaimOffer}
+                              className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold px-6 py-3 hover:from-emerald-600 hover:to-green-700 shadow-lg shadow-emerald-200/40 transition-all hover:-translate-y-0.5"
+                            >
+                              <span>Claim 50% Off Now</span>
+                              <span aria-hidden>→</span>
+                            </button>
+                          </SignUpButton>
+                        </SignedOut>
+                        <SignedIn>
+                          <button
+                            onClick={handleClaimOffer}
+                            className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold px-6 py-3 hover:from-emerald-600 hover:to-green-700 shadow-lg shadow-emerald-200/40 transition-all hover:-translate-y-0.5"
+                          >
+                            <span>Claim 50% Off Now</span>
+                            <span aria-hidden>→</span>
+                          </button>
+                        </SignedIn>
+                      </>
+                    ) : (
+                      <div className="inline-flex items-center justify-center gap-2 rounded-lg bg-gray-100 text-gray-600 font-bold px-6 py-3 border-2 border-gray-300 cursor-not-allowed">
+                        <span>✓ Offer Already Claimed</span>
+                      </div>
+                    )}
+                    <SignedIn>
+                      <Link
+                        to="/plans"
+                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold px-6 py-3 hover:from-blue-600 hover:to-indigo-700 shadow-lg shadow-blue-200/40 transition-all hover:-translate-y-0.5"
+                      >
+                        <span>View Plans</span>
+                        <span aria-hidden>→</span>
+                      </Link>
+                    </SignedIn>
+                    <Link
+                      to="/stations"
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border-2 border-emerald-500 text-emerald-600 font-bold px-6 py-3 hover:bg-emerald-50 transition-all"
+                    >
+                      <span>Find Stations</span>
+                    </Link>
+                  </div>
+
+                  {/* Offer validity */}
+                  {!offerClaimed ? (
+                    <p className="text-xs text-gray-500 mt-6">
+                      <span className="font-semibold">Offer valid</span> for new users signing up in the next 30 days. Terms & conditions apply.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-emerald-600 mt-6 font-semibold">
+                      ✓ Congratulations! Your 50% discount has been claimed. You can use it on your first diagnostic test.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Trust indicators */}
+          <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="text-center p-6 bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-100 text-blue-600 mb-3 text-xl">
+                🔬
+              </div>
+              <p className="font-semibold text-gray-900 mb-1">Lab-Grade Accuracy</p>
+              <p className="text-sm text-gray-600">94.66% accuracy with AI-powered diagnostics</p>
+            </div>
+            <div className="text-center p-6 bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-100 text-green-600 mb-3 text-xl">
+                ⚡
+              </div>
+              <p className="font-semibold text-gray-900 mb-1">20 Minutes</p>
+              <p className="text-sm text-gray-600">Complete results while you charge your EV</p>
+            </div>
+            <div className="text-center p-6 bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 mb-3 text-xl">
+                📊
+              </div>
+              <p className="font-semibold text-gray-900 mb-1">Actionable Insights</p>
+              <p className="text-sm text-gray-600">Detailed reports with safety recommendations</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Our Other Services */}
       <section id="why" className="py-12 sm:py-16 bg-gradient-to-b from-blue-50 to-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -547,159 +700,6 @@ const ZeflashLanding: React.FC = () => {
               <Zap size={20} aria-hidden="true" />
               Find Charging Stations
             </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Limited Time Offer Banner */}
-      <section className="py-12 sm:py-20 relative overflow-hidden">
-        {/* Animated background gradients */}
-        <div className="absolute inset-0 -z-10">
-          <div className="absolute top-0 left-1/4 w-96 h-96 bg-gradient-to-br from-emerald-400/40 via-green-400/20 to-transparent blur-3xl animate-pulse" />
-          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-gradient-to-tl from-blue-400/40 via-cyan-400/20 to-transparent blur-3xl animate-pulse" />
-        </div>
-
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          {/* Badge */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-emerald-100 to-green-100 px-4 py-2 mb-6">
-              <span className="text-2xl">🎉</span>
-              <span className="text-sm font-bold text-emerald-800">Exclusive Launch Offer</span>
-            </div>
-          </div>
-
-          {/* Main Offer Card */}
-          <div className="bg-gradient-to-br from-white via-blue-50/30 to-emerald-50/30 rounded-3xl border border-gradient-to-r from-emerald-200 to-blue-200 p-8 sm:p-12 shadow-2xl relative overflow-hidden">
-            {/* Decorative elements */}
-            <div className="absolute -top-20 -right-20 w-64 h-64 bg-gradient-to-br from-emerald-300/20 to-transparent blur-3xl rounded-full pointer-events-none" />
-            <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-gradient-to-tr from-blue-300/20 to-transparent blur-3xl rounded-full pointer-events-none" />
-
-            <div className="relative z-10">
-              <div className="max-w-2xl">
-                {/* Left side - Offer details */}
-                <div>
-                  <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
-                    Early Adopter Special
-                  </h2>
-                  <p className="text-lg text-gray-700 mb-6">
-                    First-time users get <span className="font-bold text-emerald-600">50% off your first diagnostic test</span> when you sign up today!
-                  </p>
-
-                  <div className="space-y-3 mb-8">
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold text-sm mt-1">
-                        ✓
-                      </div>
-                      <div>
-                        <p className="font-semibold text-gray-900">20-Minute Rapid AI Test</p>
-                        <p className="text-sm text-gray-600">Complete battery health analysis while you charge</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold text-sm mt-1">
-                        ✓
-                      </div>
-                      <div>
-                        <p className="font-semibold text-gray-900">Instant Health Report</p>
-                        <p className="text-sm text-gray-600">State of Power, Function, and safety metrics—downloadable instantly</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold text-sm mt-1">
-                        ✓
-                      </div>
-                      <div>
-                        <p className="font-semibold text-gray-900">No Hidden Charges</p>
-                        <p className="text-sm text-gray-600">Transparent pricing with flexible monthly plans</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* CTA Buttons */}
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    {!offerClaimed ? (
-                      <>
-                        <SignedOut>
-                          <SignUpButton mode="modal">
-                            <button 
-                              onClick={handleClaimOffer}
-                              className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold px-6 py-3 hover:from-emerald-600 hover:to-green-700 shadow-lg shadow-emerald-200/40 transition-all hover:-translate-y-0.5"
-                            >
-                              <span>Claim 50% Off Now</span>
-                              <span aria-hidden>→</span>
-                            </button>
-                          </SignUpButton>
-                        </SignedOut>
-                        <SignedIn>
-                          <button
-                            onClick={handleClaimOffer}
-                            className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold px-6 py-3 hover:from-emerald-600 hover:to-green-700 shadow-lg shadow-emerald-200/40 transition-all hover:-translate-y-0.5"
-                          >
-                            <span>Claim 50% Off Now</span>
-                            <span aria-hidden>→</span>
-                          </button>
-                        </SignedIn>
-                      </>
-                    ) : (
-                      <div className="inline-flex items-center justify-center gap-2 rounded-lg bg-gray-100 text-gray-600 font-bold px-6 py-3 border-2 border-gray-300 cursor-not-allowed">
-                        <span>✓ Offer Already Claimed</span>
-                      </div>
-                    )}
-                    <SignedIn>
-                      <Link
-                        to="/plans"
-                        className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold px-6 py-3 hover:from-blue-600 hover:to-indigo-700 shadow-lg shadow-blue-200/40 transition-all hover:-translate-y-0.5"
-                      >
-                        <span>View Plans</span>
-                        <span aria-hidden>→</span>
-                      </Link>
-                    </SignedIn>
-                    <Link
-                      to="/stations"
-                      className="inline-flex items-center justify-center gap-2 rounded-lg border-2 border-emerald-500 text-emerald-600 font-bold px-6 py-3 hover:bg-emerald-50 transition-all"
-                    >
-                      <span>Find Stations</span>
-                    </Link>
-                  </div>
-
-                  {/* Offer validity */}
-                  {!offerClaimed ? (
-                    <p className="text-xs text-gray-500 mt-6">
-                      <span className="font-semibold">Offer valid</span> for new users signing up in the next 30 days. Terms & conditions apply.
-                    </p>
-                  ) : (
-                    <p className="text-xs text-emerald-600 mt-6 font-semibold">
-                      ✓ Congratulations! Your 50% discount has been claimed. You can use it on your first diagnostic test.
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Trust indicators */}
-          <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center p-6 bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-100 text-blue-600 mb-3 text-xl">
-                🔬
-              </div>
-              <p className="font-semibold text-gray-900 mb-1">Lab-Grade Accuracy</p>
-              <p className="text-sm text-gray-600">94.66% accuracy with AI-powered diagnostics</p>
-            </div>
-            <div className="text-center p-6 bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-green-100 text-green-600 mb-3 text-xl">
-                ⚡
-              </div>
-              <p className="font-semibold text-gray-900 mb-1">20 Minutes</p>
-              <p className="text-sm text-gray-600">Complete results while you charge your EV</p>
-            </div>
-            <div className="text-center p-6 bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 mb-3 text-xl">
-                📊
-              </div>
-              <p className="font-semibold text-gray-900 mb-1">Actionable Insights</p>
-              <p className="text-sm text-gray-600">Detailed reports with safety recommendations</p>
-            </div>
           </div>
         </div>
       </section>

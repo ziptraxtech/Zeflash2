@@ -22,13 +22,13 @@ const PricingPlans: React.FC = () => {
         const months = monthOptions[monthStep];
 
         // Custom plan pricing - fixed per-test prices by validity
-        // 12 months: ₹200/test
-        // 18 months: ₹190/test
-        // 24 months: ₹180/test
+        // 12 months: ₹300/test
+        // 18 months: ₹290/test
+        // 24 months: ₹280/test
         const priceMap: { [key: number]: number } = {
-          12: 200,
-          18: 190,
-          24: 180
+          12: 300,
+          18: 290,
+          24: 280
         };
         const pricePerTest = priceMap[months];
         const totalPrice = tests * pricePerTest;
@@ -115,7 +115,7 @@ const PricingPlans: React.FC = () => {
               </div>
               <div className="mb-6">
                 <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-extrabold text-emerald-700">₹200</span>
+                  <span className="text-4xl font-extrabold text-emerald-700">₹300</span>
                 </div>
                 <p className="text-xs text-gray-600 mt-1"> • Valid for one time use only</p>
               </div>
@@ -143,8 +143,8 @@ const PricingPlans: React.FC = () => {
               </ul>
               <button
                 onClick={() => {
-                  console.log('📋 Trial Plan Selected:', { plan: 'trial', tests: 1, months: 0, price: 200, amountInPaise: 20000 });
-                  navigate('/checkout?plan=trial&tests=1&months=0&price=200');
+                  console.log('📋 Trial Plan Selected:', { plan: 'trial', tests: 1, months: 0, price: 300, amountInPaise: 30000 });
+                  navigate('/checkout?plan=trial&tests=1&months=0&price=300');
                 }}
                 className="block w-full text-center rounded-lg bg-emerald-600 text-white font-semibold px-4 py-2.5 hover:bg-emerald-700 transition-colors shadow-sm"
               >
