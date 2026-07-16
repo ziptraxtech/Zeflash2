@@ -943,27 +943,32 @@ const ChargingStations: React.FC = () => {
         {/* Stats Section */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-12">
             <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 hover:bg-blue-100 transition-colors text-center">
-              <div className="text-xs text-blue-700 font-semibold">Instant Health Report</div>
+              <div className="text-3xl text-blue-700 font-extrabold">Instant Health Report</div>
               <div className="text-3xl font-extrabold text-blue-700 mt-1">20 Min <span role='img' aria-label='check'>✅</span></div>
             </div>
             <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 transition-colors text-center">
-              <div className="text-xs text-emerald-700 font-semibold">ML Accuracy</div>
+              <div className="text-3xl text-emerald-700 font-extrabold">ML Accuracy With</div>
               <div className="text-3xl font-extrabold text-emerald-700 mt-1">94.66%</div>
             </div>
             <button
               onClick={() => setDataCollectionModal({ open: true, type: 'precision', formData: { name: '', email: '', contact: '' } })}
               className="p-4 rounded-xl bg-violet-50 border border-violet-100 hover:bg-violet-100 transition-colors text-center cursor-pointer"
             >
-              <div className="text-xs font-extrabold text-violet-700 font-semibold">Offers</div>
-              <div className="text-2xl font-extrabold text-violet-600 mt-1">[Click to get exciting offers]</div>
-              
+              <img 
+                src="/button2.png" 
+                alt="Click to get exciting offers" 
+                className="w-full h-auto object-contain"
+              />
             </button>
             <button
               onClick={() => window.open('https://evchamp.in/', '_blank')}
-              className="p-4 rounded-xl bg-blue-50 border border-blue-100 hover:bg-blue-100 transition-colors text-center cursor-pointer"
+              className="p-4 rounded-xl bg-white border border-blue-100 hover:shadow-lg transition-all"
             >
-              <div className="text-xs text-blue-700 font-semibold">EVChamp</div>
-              <div className="text-2xl font-extrabold text-blue-600 mt-1">[Your EV Vehicle Companion]</div>
+              <img 
+                src="/button.png" 
+                alt="EVChamp - Your EV Vehicle Companion" 
+                className="w-full h-auto object-contain"
+              />
             </button>
           </div>
 
@@ -2405,14 +2410,14 @@ const ChargingStations: React.FC = () => {
                 Cancel
               </button>
               <button
-                onClick={() => {
+                onClick={async () => {
                   // Validate required fields
                   if (!dataCollectionModal.formData.name.trim() || !dataCollectionModal.formData.email.trim()) {
                     alert('Please fill in all required fields');
                     return;
                   }
                   
-                  // Log the data (in production, send to backend)
+                  // Log the data
                   console.log(`📋 ${dataCollectionModal.type === 'precision' ? 'Exclusive Offers' : 'False Negative Rate'} Signup:`, {
                     type: dataCollectionModal.type,
                     name: dataCollectionModal.formData.name,
@@ -2420,9 +2425,41 @@ const ChargingStations: React.FC = () => {
                     contact: dataCollectionModal.formData.contact || 'Not provided'
                   });
                   
+                  // Send email with offer if it's the precision (offers) type
+                  if (dataCollectionModal.type === 'precision') {
+                    try {
+                      const response = await fetch(`${API_URL}/api/send-offer-email`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                          name: dataCollectionModal.formData.name,
+                          email: dataCollectionModal.formData.email,
+                          contact: dataCollectionModal.formData.contact || 'Not provided',
+                          offerMessage: '🎁 Exclusive Offer: Get 50% off your first diagnostic test! This offer is available for one-time use only and is valid for new users signing up within 30 days.',
+                          offerDetails: {
+                            discount: '50%',
+                            applicableTo: 'First diagnostic test',
+                            validityPeriod: '30 days',
+                            oneTimeUse: true
+                          }
+                        })
+                      });
+                      
+                      if (!response.ok) {
+                        throw new Error('Failed to send offer email');
+                      }
+                      
+                      console.log('✅ Offer email sent successfully to:', dataCollectionModal.formData.email);
+                    } catch (error) {
+                      console.error('❌ Error sending offer email:', error);
+                    }
+                  }
+                  
                   // Show success message
                   alert(dataCollectionModal.type === 'precision' 
-                    ? '🎉 Thank you! Check your email for exclusive offers.' 
+                    ? '🎉 Thank you! Check your email for your exclusive 50% off offer.' 
                     : 'Thank you for your feedback! We appreciate your insights.');
                   
                   // Close modal

@@ -510,12 +510,12 @@ const ZeflashLanding: React.FC = () => {
               name: 'ZipsureAI',
               href: 'https://zipsureai.com/',
               desc: 'AI-powered battery intelligence and safety analytics for fleets, OEMs, and energy operators.',
-              accent: 'from-indigo-500 to-blue-600'
+              accent: 'from-orange-500 to-orange-600'
             }, {
               name: 'EVCHAMP',
               href: 'https://evchamp.in/',
               desc: 'Smart EV charging network with seamless booking, monitoring, and uptime-first operations.',
-              accent: 'from-emerald-500 to-green-600'
+              accent: 'from-blue-500 to-blue-600'
             }].map((item) => (
               <a
                 key={item.name}
