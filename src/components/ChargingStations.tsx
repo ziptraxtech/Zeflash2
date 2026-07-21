@@ -942,34 +942,33 @@ const ChargingStations: React.FC = () => {
 
         {/* Stats Section */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-12">
-            <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 hover:bg-blue-100 transition-colors text-center">
-              <div className="text-3xl text-blue-700 font-extrabold">Instant Health Report</div>
-              <div className="text-3xl font-extrabold text-blue-700 mt-1">20 Min <span role='img' aria-label='check'>✅</span></div>
-            </div>
-            <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 transition-colors text-center">
-              <div className="text-3xl text-emerald-700 font-extrabold">ML Accuracy With</div>
-              <div className="text-3xl font-extrabold text-emerald-700 mt-1">94.66%</div>
-            </div>
             <button
               onClick={() => setDataCollectionModal({ open: true, type: 'precision', formData: { name: '', email: '', contact: '' } })}
-              className="p-4 rounded-xl bg-violet-50 border border-violet-100 hover:bg-violet-100 transition-colors text-center cursor-pointer"
+              className="p-4 rounded-xl bg-gradient-to-br from-violet-50 to-purple-50 border-2 border-violet-300 hover:border-violet-500 hover:bg-violet-100 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 text-center cursor-pointer group relative overflow-hidden"
             >
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-400/0 via-purple-300/10 to-purple-400/0 group-hover:via-purple-300/20 transition-all" />
               <img 
                 src="/button2.png" 
                 alt="Click to get exciting offers" 
-                className="w-full h-auto object-contain"
+                className="w-full h-auto object-contain relative z-10 group-hover:scale-105 transition-transform"
               />
+              <div className="absolute inset-0 rounded-xl border border-violet-400/50 group-hover:border-violet-500 opacity-0 group-hover:opacity-100 transition-opacity" />
             </button>
             <button
               onClick={() => window.open('https://evchamp.in/', '_blank')}
-              className="p-4 rounded-xl bg-white border border-blue-100 hover:shadow-lg transition-all"
+              className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-300 hover:border-blue-500 hover:bg-blue-100 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer group relative overflow-hidden"
             >
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-400/0 via-blue-300/10 to-blue-400/0 group-hover:via-blue-300/20 transition-all" />
               <img 
                 src="/button.png" 
                 alt="EVChamp - Your EV Vehicle Companion" 
-                className="w-full h-auto object-contain"
+                className="w-full h-auto object-contain relative z-10 group-hover:scale-105 transition-transform"
               />
+              <div className="absolute inset-0 rounded-xl border border-blue-400/50 group-hover:border-blue-500 opacity-0 group-hover:opacity-100 transition-opacity" />
             </button>
+            <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 hover:bg-blue-100 transition-colors text-center">
+              <div className="text-3xl text-blue-700 font-extrabold">Get Rapid AI Test in 20 mins ✅ (94.66% Accuracy)</div>
+            </div>
           </div>
 
         {/* Search and Filter Section */}
@@ -2347,20 +2346,7 @@ const ChargingStations: React.FC = () => {
 
             {/* Form Content */}
             <div className="p-6 space-y-4">
-              {/* Name Field */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Full Name *</label>
-                <input
-                  type="text"
-                  placeholder="Your name"
-                  value={dataCollectionModal.formData.name}
-                  onChange={(e) => setDataCollectionModal(prev => ({
-                    ...prev,
-                    formData: { ...prev.formData, name: e.target.value }
-                  }))}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                />
-              </div>
+              
 
               {/* Email Field */}
               <div>
