@@ -42,8 +42,7 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          cd backend
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker build -f backend/Dockerfile -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
@@ -54,19 +53,28 @@ jobs:
           aws ecs describe-task-definition --task-definition ${{ env.ECS_TASK_DEFINITION }} \
             --query taskDefinition > task-definition.json
 
-      - name: Update task definition with new image
+      - name: Clean and update task definition
+        run: |
+          # Remove fields ECS won't accept on register
+          cat task-definition.json | jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' > task-def-clean.json
+
+          # Update image for the first container definition
+          # If your task has multiple containers, switch this to match by name.
+          cat task-def-clean.json | jq '.containerDefinitions[0].image = "${{ steps.image.outputs.image }}"' > task-def-updated.json
+
+      - name: Register new task definition
+        id: task-def
         run: |
           aws ecs register-task-definition \
-            --cli-input-json file://task-definition.json \
-            --region ${{ env.AWS_REGION }} \
-            --overrides '{"containerDefinitions": [{"name": "${{ env.ECS_REPOSITORY }}", "image": "${{ steps.image.outputs.image }}"}]}' || true
-          # Note: jq can be used if more complex updates needed
+            --cli-input-json file://task-def-updated.json \
+            --region ${{ env.AWS_REGION }}
 
       - name: Update ECS Service
         run: |
           aws ecs update-service \
             --cluster ${{ env.ECS_CLUSTER }} \
             --service ${{ env.ECS_SERVICE }} \
+            --task-definition ${{ env.ECS_TASK_DEFINITION }} \
             --force-new-deployment \
             --region ${{ env.AWS_REGION }}
 
