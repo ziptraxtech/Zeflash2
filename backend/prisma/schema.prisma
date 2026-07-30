@@ -57,6 +57,21 @@ model Payment {
   user                User      @relation(fields: [userId], references: [id])
 }
 
+// An EVChamp trial purchase belongs to exactly one of these paths: it is
+// converted into credits for an existing Zeflash user, or it is stored as a
+// one-time coupon for a customer who has not yet signed in to Zeflash.
+model PartnerCoupon {
+  code        String   @id
+  orderId     String   @unique
+  clerkUserId String
+  quantity    Int      @default(1)
+  remaining   Int      @default(1)
+  redeemedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([clerkUserId])
+}
+
 model Report {
   id        String   @id @default(cuid())
   userId    String?  // Optional - allows guest (unauthenticated) reports

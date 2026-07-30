@@ -133,8 +133,8 @@ async function pollJob(jobId: string): Promise<{
 /**
  * Validate and check coupon for free report generation
  */
-function validateCoupon(couponCode?: string): { valid: boolean; isFree: boolean } {
-  if (!couponCode) return { valid: false, isFree: false };
+async function validateCoupon(couponCode?: string): Promise<{ valid: boolean; isFree: boolean; partnerCoupon: boolean }> {
+  if (!couponCode) return { valid: false, isFree: false, partnerCoupon: false };
   
   const code = couponCode.toUpperCase();
   
@@ -142,10 +142,27 @@ function validateCoupon(couponCode?: string): { valid: boolean; isFree: boolean 
   const freeCoupons = ['ZEFLASHCODERS', 'TESTCHARJ', 'ZIPTRAX'];
   
   if (freeCoupons.includes(code)) {
-    return { valid: true, isFree: true };
+    return { valid: true, isFree: true, partnerCoupon: false };
   }
+
+  const partnerCoupon = await prisma.partnerCoupon.findFirst({
+    where: { code, remaining: { gt: 0 } },
+    select: { code: true },
+  });
+  if (partnerCoupon) return { valid: true, isFree: true, partnerCoupon: true };
   
-  return { valid: false, isFree: false };
+  return { valid: false, isFree: false, partnerCoupon: false };
+}
+
+// Reserve a dynamically-issued EVChamp coupon exactly once. The hard-coded
+// historical coupons above intentionally retain their existing behaviour.
+async function redeemPartnerCoupon(couponCode: string): Promise<boolean> {
+  const code = couponCode.toUpperCase();
+  const redeemed = await prisma.partnerCoupon.updateMany({
+    where: { code, remaining: { gt: 0 } },
+    data: { remaining: { decrement: 1 }, redeemedAt: new Date() },
+  });
+  return redeemed.count === 1;
 }
 
 export const generateReportRouter = Router();
@@ -195,7 +212,7 @@ generateReportRouter.post('/', optionalAuth, async (req: AuthRequest, res: Respo
     }
 
     // Check if using a valid coupon (skips credit requirement)
-    const coupon = validateCoupon(coupon_code);
+    const coupon = await validateCoupon(coupon_code);
     
     // Determine if user is authenticated
     const isAuthenticated = !!req.clerkUserId;
@@ -219,6 +236,9 @@ generateReportRouter.post('/', optionalAuth, async (req: AuthRequest, res: Respo
         console.log(`[generateReport] 🌐 Guest user generating report via ${paymentMethod}`);
         
         try {
+          if (coupon.partnerCoupon && !(await redeemPartnerCoupon(coupon_code!))) {
+            return res.status(409).json({ error: 'This coupon has already been used.' });
+          }
           const guestReport = await prisma.report.create({
             data: {
               evseId: evse_id,
@@ -316,6 +336,9 @@ generateReportRouter.post('/', optionalAuth, async (req: AuthRequest, res: Respo
     // Deduct credit and create report record
     let report: { id: string };
     try {
+      if (coupon.partnerCoupon && !(await redeemPartnerCoupon(coupon_code!))) {
+        return res.status(409).json({ error: 'This coupon has already been used.' });
+      }
       // Only deduct credit if:
       // - NOT using a valid free coupon
       // - AND NOT paid for via Razorpay

@@ -258,6 +258,12 @@ const ChargingStations: React.FC = () => {
   // Coupon validation and pricing function
   const getCouponInfo = (code: string): { valid: boolean; amount: number; discount: number } => {
     const upperCode = code.toUpperCase();
+    // EVChamp trial coupons are verified and redeemed by the Zeflash backend
+    // when the report is requested. Treat the prefix as a free report here so
+    // a legitimate emailed code reaches that server-side verification step.
+    if (/^EVZ-[A-F0-9]{10}$/.test(upperCode)) {
+      return { valid: true, amount: 0, discount: 299 };
+    }
     if (upperCode === 'ZEFLASHCODERS') {
       return { valid: true, amount: 0, discount: 299 }; // Free for testing
     } else if (upperCode === 'TESTCHARJ') {
