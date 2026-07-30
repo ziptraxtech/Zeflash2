@@ -11,11 +11,11 @@ on:
   workflow_dispatch:
 
 env:
-  AWS_REGION: us-east-1
-  ECR_REPOSITORY: zipbolt-backend
-  ECS_SERVICE: zipbolt-backend-service
-  ECS_CLUSTER: zipbolt-cluster
-  ECS_TASK_DEFINITION: zipbolt-backend
+  AWS_REGION: ap-south-1
+  ECR_REPOSITORY: defect-detector
+  ECS_CLUSTER: zeflash-cluster
+  ECS_SERVICE: zeflash-ml-service
+  ECS_TASK_DEFINITION: zeflash-ml-inference-task
 
 jobs:
   deploy:
@@ -57,24 +57,25 @@ jobs:
         run: |
           # Remove fields ECS won't accept on register
           cat task-definition.json | jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' > task-def-clean.json
-
-          # Update image for the first container definition
-          # If your task has multiple containers, switch this to match by name.
-          cat task-def-clean.json | jq '.containerDefinitions[0].image = "${{ steps.image.outputs.image }}"' > task-def-updated.json
+          # Update image for the target container by name
+          cat task-def-clean.json | jq '.containerDefinitions[] |= if .name == "zeflash-ml" then .image = "${{ steps.image.outputs.image }}" else . end' > task-def-updated.json
 
       - name: Register new task definition
         id: task-def
         run: |
-          aws ecs register-task-definition \
+          TASK_DEF_ARN=$(aws ecs register-task-definition \
             --cli-input-json file://task-def-updated.json \
-            --region ${{ env.AWS_REGION }}
+            --region ${{ env.AWS_REGION }} \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+          echo "task_def_arn=$TASK_DEF_ARN" >> $GITHUB_OUTPUT
 
       - name: Update ECS Service
         run: |
           aws ecs update-service \
             --cluster ${{ env.ECS_CLUSTER }} \
             --service ${{ env.ECS_SERVICE }} \
-            --task-definition ${{ env.ECS_TASK_DEFINITION }} \
+            --task-definition ${{ steps.task-def.outputs.task_def_arn }} \
             --force-new-deployment \
             --region ${{ env.AWS_REGION }}
 
