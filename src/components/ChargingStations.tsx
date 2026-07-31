@@ -2334,7 +2334,10 @@ const ChargingStations: React.FC = () => {
                 onClick={handleCouponSubmit}
                 className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold rounded-lg transition-all shadow-lg hover:shadow-xl"
               >
-                Pay & Continue
+                {(() => {
+                  const info = getCouponInfo(tempCouponInput);
+                  return info.valid && info.amount === 0 ? 'Continue' : 'Pay & Continue';
+                })()}
               </button>
             </div>
           </div>
