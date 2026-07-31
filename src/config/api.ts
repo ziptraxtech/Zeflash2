@@ -1,9 +1,8 @@
 // API Configuration
-// DEV: http://localhost:3000
-// PROD: Uses Vercel API proxy (HTTPS) to avoid mixed content errors
-// The proxy forwards requests to the EC2 backend
-export const API_URL = import.meta.env.DEV 
-  ? 'http://localhost:3000' 
+// DEV: local Express backend (default :3001). Override with VITE_API_URL.
+// PROD: Uses Vercel API proxy (HTTPS) to avoid mixed content errors.
+export const API_URL = import.meta.env.DEV
+  ? (import.meta.env.VITE_API_URL || 'http://localhost:3001')
   : (import.meta.env.VITE_API_BASE || '/api/backend');
 
 export const buildReportImageUrl = (

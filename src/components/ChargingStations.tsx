@@ -283,8 +283,15 @@ const ChargingStations: React.FC = () => {
       return;
     }
 
+    // If signed in with credits and no coupon entered, prefer wallet credits.
+    if (user && availableCredits >= 1 && tempCouponInput.trim() === '') {
+      await handleUseCredits();
+      return;
+    }
+
     // Proceed with payment or AI report generation
     setCouponModalState({ ...couponModalState, open: false });
+    const couponCode = tempCouponInput.trim().toUpperCase();
     setTempCouponInput('');
 
     const evseId = couponModalState.evseId;
@@ -294,13 +301,13 @@ const ChargingStations: React.FC = () => {
     if (couponInfo.valid && couponInfo.amount === 0) {
       // Valid free coupon - skip payment and generate report
       setReportModal((prev) => ({ ...prev, aiLoading: true, aiError: '', aiImageUrl: '' }));
-      proceedWithAIReport(evseId, deviceId, tempCouponInput.toUpperCase(), stationName);
+      proceedWithAIReport(evseId, deviceId, couponCode, stationName);
     } else {
       // No coupon or paid coupon - proceed with payment
       // Default to ₹299 if no coupon, or use coupon amount if provided
       const amountToCharge = couponInfo.valid ? couponInfo.amount : 299;
       setReportModal((prev) => ({ ...prev, paymentPending: true, paymentError: '', aiError: '', aiImageUrl: '' }));
-      proceedWithPayment(evseId, deviceId, amountToCharge, tempCouponInput.toUpperCase(), stationName);
+      proceedWithPayment(evseId, deviceId, amountToCharge, couponCode, stationName);
     }
   };
 

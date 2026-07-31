@@ -47,8 +47,14 @@ const ZeVaultPage: React.FC = () => {
           }
         });
 
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.includes('application/json')) {
+          throw new Error(`Credits API returned non-JSON from ${API_URL}/credits (is the backend running?)`);
+        }
+
         if (!response.ok) {
-          throw new Error('Unable to load your credits right now.');
+          const errBody = await response.json().catch(() => ({}));
+          throw new Error(errBody.error || 'Unable to load your credits right now.');
         }
 
         const data = await response.json();
