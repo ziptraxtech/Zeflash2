@@ -63,17 +63,70 @@ const PlanCheckout: React.FC = () => {
         break;
       case 'trial':
         details = {
-          name: 'One Time Trial',
+          name: 'One Time',
           tests: 1,
           validity: 0,
-          pricePerTest: 300,
-          totalPrice: 300,
+          pricePerTest: 199,
+          totalPrice: 199,
           features: [
             '1 complete 20-min diagnostic',
             'Instant health report',
             'PDF download',
             'Basic recommendations',
-            'No credit card required'
+            "Coupon emailed if you're new to Zeflash"
+          ]
+        };
+        break;
+      case 'core':
+        details = {
+          name: 'Core Pack',
+          tests: 4,
+          validity: 12,
+          pricePerTest: Math.round(1199 / 4),
+          totalPrice: 1199,
+          features: [
+            'Free Unlimited EV Charger & Service Center Discovery',
+            'Free Digital Garage & Renew Vehicle Insurance',
+            '4 Zeflash AI Diagnostic Tests/year (Quarterly)',
+            'Instant health report',
+            'Basic recommendations',
+            'Basic Safety & Overheating Alerts'
+          ]
+        };
+        break;
+      case 'premium':
+        details = {
+          name: 'Premium Pack',
+          tests: 6,
+          validity: 12,
+          pricePerTest: Math.round(2499 / 6),
+          totalPrice: 2499,
+          features: [
+            'Free Unlimited EV Charger & Service Center Discovery',
+            'Free Digital Garage & Renew Vehicle Insurance',
+            '6 Zeflash AI Diagnostic Tests/year (Bi-monthly)',
+            'Get TruEV Value Predictor (Battery Aging & Cell Data Analysis)',
+            '1 Annual Comprehensive Audit Reports - ZipsureAi Battery Health Audit',
+            '1 SoS Breakdown EV Towings - Roadside Assistance (RSA)',
+            'Real-time Thermal Warnings and Performance loss warnings - Safety & Overheating Alerts'
+          ]
+        };
+        break;
+      case 'elite':
+        details = {
+          name: 'Elite Pack',
+          tests: 12,
+          validity: 12,
+          pricePerTest: Math.round(4999 / 12),
+          totalPrice: 4999,
+          features: [
+            'Free Unlimited EV Charger & Service Center Discovery',
+            'Free Digital Garage & Renew Vehicle Insurance',
+            '12 Zeflash AI Diagnostic Tests/year (Monthly)',
+            'Get TruEV Value Predictor (Battery Aging and Cell Data Analysis)',
+            '2 Annual Comprehensive Audit Reports - ZipsureAi Battery Health Audit',
+            '2 SoS Breakdown EV Towings - Roadside Assistance (RSA)',
+            'Priority with Emergency AI Dispatch Support - Safety & Overheating Alerts'
           ]
         };
         break;
