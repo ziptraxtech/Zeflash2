@@ -32,6 +32,44 @@ import {
   Legend
 } from 'recharts';
 
+// ============================================
+// DEBUG & ERROR LOGGING UTILITIES
+// ============================================
+const DEBUG_LOG = {
+  info: (section: string, message: string, data?: any) => {
+    console.log(`[${section}]`, message, data || '');
+  },
+  error: (section: string, message: string, error?: any) => {
+    console.error(`[${section}] ❌`, message, error || '');
+  },
+  warn: (section: string, message: string, data?: any) => {
+    console.warn(`[${section}] ⚠️ `, message, data || '');
+  },
+  success: (section: string, message: string, data?: any) => {
+    console.log(`[${section}] ✅`, message, data || '');
+  }
+};
+
+// Check S3 bucket accessibility
+const checkS3Accessibility = async (s3Url: string): Promise<{accessible: boolean; status: number; error?: string}> => {
+  try {
+    const response = await fetch(s3Url, { method: 'HEAD', mode: 'cors' });
+    return { accessible: response.ok, status: response.status };
+  } catch (error) {
+    return { accessible: false, status: 0, error: (error as Error).message };
+  }
+};
+
+// Test API endpoint
+const testApiEndpoint = async (endpoint: string): Promise<{reachable: boolean; statusCode?: number; error?: string}> => {
+  try {
+    const response = await fetch(endpoint, { method: 'GET' });
+    return { reachable: response.ok, statusCode: response.status };
+  } catch (error) {
+    return { reachable: false, error: (error as Error).message };
+  }
+};
+
 type CsvRow = {
   'S.No'?: string;
   'Station ID'?: string;
@@ -225,16 +263,21 @@ const ChargingStations: React.FC = () => {
       setReportModal(prev => ({ ...prev, loading: true, error: '' }));
     }
     try {
+      console.log(`[fetchChargerReport] 📥 Starting fetch for EVSE: ${evseId}, Connector: ${connectorId}`);
+      
       // First, get a fresh token
+      console.log(`[fetchChargerReport] Getting token from: ${TOKEN_ENDPOINT}`);
       const tokenRes = await fetch(TOKEN_ENDPOINT);
       if (!tokenRes.ok) {
-        throw new Error('Failed to get authorization token');
+        throw new Error(`Failed to get authorization token: ${tokenRes.status} ${tokenRes.statusText}`);
       }
       const tokenData = await tokenRes.json();
       const token = tokenData.token;
+      console.log(`[fetchChargerReport] ✅ Got token: ${token.substring(0, 20)}...`);
 
       // Then, use the token to fetch charger report
       const url = `${API_BASE_URL}?role=Admin&operator=All&evse_id=${evseId}&connector_id=${connectorId}&page=1&limit=100`;
+      console.log(`[fetchChargerReport] 🔗 Fetching from: ${url}`);
       
       const response = await fetch(url, {
         method: 'GET',
@@ -243,15 +286,20 @@ const ChargingStations: React.FC = () => {
         },
       });
       
+      console.log(`[fetchChargerReport] Response status: ${response.status}`);
+      
       if (!response.ok) {
         const errorText = await response.text();
+        console.error(`[fetchChargerReport] ❌ API returned error: ${response.status}`, errorText);
         throw new Error(`API error: ${response.status} - ${errorText || 'Unknown error'}`);
       }
       const data = await response.json();
+      console.log(`[fetchChargerReport] ✅ Successfully got data, records:`, data?.length || 0);
       setReportModal((prev) => ({ ...prev, data, loading: false }));
     } catch (err) {
-      console.error('Fetch error:', err);
-      setReportModal((prev) => ({ ...prev, error: (err as Error).message, loading: false }));
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      console.error(`[fetchChargerReport] ❌ Fetch error:`, errorMsg);
+      setReportModal((prev) => ({ ...prev, error: errorMsg, loading: false }));
     }
   };
 
@@ -312,6 +360,20 @@ const ChargingStations: React.FC = () => {
   };
 
   const handleUseCredits = async () => {
+    const MAX_RETRIES = 3;
+    const TIMEOUT_MS = 120000; // 2 minutes
+    
+    const fetchWithTimeout = async (url: string, options: RequestInit) => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+      
+      try {
+        return await fetch(url, { ...options, signal: controller.signal });
+      } finally {
+        clearTimeout(timeout);
+      }
+    };
+
     const evseId = couponModalState.evseId;
     const connectorId = reportModal.connectorId || 1;
     const stationName = reportModal.stationName;
@@ -326,163 +388,337 @@ const ChargingStations: React.FC = () => {
       aiImageUrl: ''
     }));
 
-    try {
-      const token = await getToken();
-      if (!token) throw new Error('Please sign in to use credits.');
+    let lastError = '';
 
-      const response = await fetch(`${API_URL}/generate-report`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ evse_id: evseId, connector_id: connectorId, station_name: stationName }),
-      });
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        console.log(`[handleUseCredits] ===== ATTEMPT ${attempt}/${MAX_RETRIES} =====`);
+        const token = await getToken();
+        if (!token) throw new Error('Please sign in to use credits.');
 
-      const responseText = await response.text();
-      const payload = responseText ? JSON.parse(responseText) : {};
+        const response = await fetchWithTimeout(`${API_URL}/generate-report`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ evse_id: evseId, connector_id: connectorId, station_name: stationName }),
+        });
 
-      if (!response.ok) {
-        throw new Error(payload.error || 'Failed to generate AI report using credits.');
+        const responseText = await response.text();
+        const payload = responseText ? JSON.parse(responseText) : {};
+
+        if (!response.ok) {
+          lastError = payload.error || `Failed: ${response.status}`;
+          console.error(`[handleUseCredits] ❌ Error:`, lastError);
+          
+          // Don't retry on auth errors
+          if (response.status === 401 || response.status === 402) {
+            throw new Error(lastError);
+          }
+          
+          // Retry on 5xx
+          if (attempt < MAX_RETRIES && response.status >= 500) {
+            console.log(`[handleUseCredits] Retrying in 2 seconds...`);
+            await new Promise(r => setTimeout(r, 2000));
+            continue;
+          }
+          
+          throw new Error(lastError);
+        }
+
+        setReportModal((prev) => ({
+          ...prev,
+          aiImageUrl: payload.s3Url,
+          aiLoading: false,
+          aiError: '',
+          recommendations: payload.recommendations || [],
+          aiReportData: {
+            totalSamples: payload.totalSamples,
+            totalAnomalies: payload.totalAnomalies,
+            anomalies: payload.anomalies,
+            status: payload.status
+          }
+        }));
+
+        setAvailableCredits((prev) => Math.max(0, prev - 1));
+        console.log(`[handleUseCredits] ===== SUCCESS! =====`);
+        return; // Success!
+      } catch (error) {
+        console.error(`[handleUseCredits] ❌ Attempt ${attempt} failed:`, error);
+        lastError = error instanceof Error ? error.message : 'Failed to use credits for AI report generation.';
+        
+        if (attempt < MAX_RETRIES) {
+          console.log(`[handleUseCredits] Waiting 2 seconds before retry...`);
+          await new Promise(r => setTimeout(r, 2000));
+        }
       }
-
-      const fallbackImageUrl = getDefaultAiImageUrl(evseId, connectorId);
-      const resolvedUrl = resolveAiImageUrl(payload.s3Url || fallbackImageUrl, evseId, connectorId);
-
-      setReportModal((prev) => ({
-        ...prev,
-        aiImageUrl: `${resolvedUrl}${resolvedUrl.includes('?') ? '&' : '?'}t=${Date.now()}`,
-        aiLoading: false,
-        aiError: '',
-      }));
-
-      setAvailableCredits((prev) => Math.max(0, prev - 1));
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to use credits for AI report generation.';
-      setReportModal((prev) => ({
-        ...prev,
-        aiLoading: false,
-        aiError: message,
-      }));
     }
+
+    // All retries exhausted
+    setReportModal((prev) => ({
+      ...prev,
+      aiLoading: false,
+      aiError: lastError || 'Failed to use credits after 3 attempts. Please try again.',
+    }));
   };
 
   // Proceed with payment
   const proceedWithPayment = async (evseId: string, deviceId: string, amount: number, coupon: string, stationName?: string) => {
+    const MAX_RETRIES = 3;
+    const TIMEOUT_MS = 120000; // 2 minutes
+    
+    const fetchWithTimeout = async (url: string, options: RequestInit) => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+      
+      try {
+        return await fetch(url, { ...options, signal: controller.signal });
+      } finally {
+        clearTimeout(timeout);
+      }
+    };
+
     try {
+      console.log(`[proceedWithPayment] 💳 Starting payment process for device ${deviceId}, amount: ₹${amount}`);
       const paymentSucceeded = await initiatePayment(deviceId, amount, coupon);
 
       if (!paymentSucceeded) {
+        console.log(`[proceedWithPayment] ❌ Payment was cancelled`);
         setReportModal((prev) => ({ ...prev, paymentPending: false, paymentError: 'Payment was cancelled. Please try again.' }));
         return;
       }
 
-      // After payment succeeds, generate report with paid_for_report flag
+      console.log(`[proceedWithPayment] ✅ Payment succeeded, now generating report`);
       setReportModal((prev) => ({ ...prev, paymentPending: false, aiLoading: true, aiError: '', aiImageUrl: '' }));
       const connectorId = reportModal.connectorId || 1;
       
-      const response = await fetch(`${API_URL}/generate-report`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          evse_id: evseId, 
-          connector_id: connectorId, 
-          paid_for_report: true,
-          station_name: stationName 
-        }),
-      });
+      let lastError = '';
+      
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          console.log(`[proceedWithPayment] ===== ATTEMPT ${attempt}/${MAX_RETRIES} =====`);
+          const response = await fetchWithTimeout(`${API_URL}/generate-report`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+              evse_id: evseId, 
+              connector_id: connectorId, 
+              paid_for_report: true,
+              station_name: stationName 
+            }),
+          });
 
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.error || `Generation failed: ${response.status}`);
+          if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            const errorMsg = error.error || `Generation failed: ${response.status}`;
+            console.error(`[proceedWithPayment] ❌ Report generation error:`, errorMsg);
+            lastError = errorMsg;
+            
+            // Don't retry on auth errors or 4xx errors
+            if (response.status >= 400 && response.status < 500) {
+              throw new Error(errorMsg);
+            }
+            
+            // Retry on 5xx errors
+            if (attempt < MAX_RETRIES && response.status >= 500) {
+              console.log(`[proceedWithPayment] Retrying in 2 seconds...`);
+              await new Promise(r => setTimeout(r, 2000));
+              continue;
+            }
+            
+            throw new Error(errorMsg);
+          }
+
+          const reportData = await response.json();
+          console.log(`[proceedWithPayment] ✅ Report generated, S3 URL:`, reportData.s3Url);
+          
+          setReportModal((prev) => ({
+            ...prev,
+            aiImageUrl: reportData.s3Url,
+            aiLoading: false,
+            aiError: '',
+            aiReportData: reportData,
+            recommendations: reportData.recommendations || [],
+          }));
+          
+          console.log(`[proceedWithPayment] ===== SUCCESS! =====`);
+          return; // Success!
+        } catch (error) {
+          console.error(`[proceedWithPayment] ❌ Attempt ${attempt} failed:`, error);
+          lastError = error instanceof Error ? error.message : 'Failed to generate report';
+          
+          if (attempt < MAX_RETRIES && (lastError.includes('timeout') || lastError.includes('5'))) {
+            console.log(`[proceedWithPayment] Waiting 2 seconds before retry...`);
+            await new Promise(r => setTimeout(r, 2000));
+          }
+        }
       }
-
-      const reportData = await response.json();
-      const fallbackImageUrl = getDefaultAiImageUrl(evseId, connectorId);
-      const resolvedUrl = resolveAiImageUrl(reportData.s3Url || fallbackImageUrl, evseId, connectorId);
-
+      
+      // All retries exhausted
       setReportModal((prev) => ({
         ...prev,
-        aiImageUrl: `${resolvedUrl}${resolvedUrl.includes('?') ? '&' : '?'}t=${Date.now()}`,
         aiLoading: false,
-        aiError: '',
-        aiReportData: reportData,
+        aiError: lastError || 'Failed to generate report after payment. Please try again.',
+        paymentPending: false,
       }));
     } catch (error) {
-      console.error('Payment error:', error);
+      console.error('[proceedWithPayment] ❌ Payment error:', error);
       setReportModal((prev) => ({
         ...prev,
         paymentPending: false,
         aiLoading: false,
-        paymentError: 'Failed to generate report after payment. Please try again.'
+        paymentError: 'Payment error. Please try again.'
       }));
     }
   };
 
   // Proceed with AI report generation
   const proceedWithAIReport = async (evseId: string, _deviceId: string, couponCode?: string, stationName?: string) => {
-    try {
-      const connectorId = reportModal.connectorId || 1;
-      const token = await getToken().catch(() => null);
+    const MAX_RETRIES = 3;
+    const TIMEOUT_MS = 120000; // 2 minutes
+    
+    const fetchWithTimeout = async (url: string, options: RequestInit) => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
       
-      // For signed-in users, include token; for unauthenticated users with coupons, request proceeds without token
-      const response = await fetch(`${API_URL}/generate-report`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { 'Authorization': `Bearer ${token}` }),
-        },
-        body: JSON.stringify({ evse_id: evseId, connector_id: connectorId, coupon_code: couponCode, station_name: stationName }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.error || `Generation failed: ${response.status}`);
+      try {
+        return await fetch(url, { ...options, signal: controller.signal });
+      } finally {
+        clearTimeout(timeout);
       }
+    };
 
-      const reportData = await response.json();
-      console.log('[proceedWithAIReport] Response data:', reportData);
-      console.log('[proceedWithAIReport] Recommendations raw:', reportData.recommendations);
-      console.log('[proceedWithAIReport] Recommendations type:', typeof reportData.recommendations);
-      console.log('[proceedWithAIReport] Recommendations length:', reportData.recommendations?.length);
-      
-      // Update modal with image URL, recommendations, and AI report metrics
-      const recsToSet = reportData.recommendations || [];
-      console.log('[proceedWithAIReport] Setting recommendations:', recsToSet);
-      
-      setReportModal((prev) => ({
-        ...prev,
-        aiImageUrl: reportData.s3Url,
-        aiLoading: false,
-        aiError: '',
-        recommendations: recsToSet,
-        // Store AI report metrics for PDF generation
-        aiReportData: {
+    let lastError = '';
+    
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        console.log(`[proceedWithAIReport] ===== ATTEMPT ${attempt}/${MAX_RETRIES} =====`);
+        console.log(`[proceedWithAIReport] 🚀 Starting AI report generation for ${evseId}`);
+        const connectorId = reportModal.connectorId || 1;
+        const token = await getToken().catch(() => null);
+        
+        // For signed-in users, include token; for unauthenticated users with coupons, request proceeds without token
+        const body = { 
+          evse_id: evseId, 
+          connector_id: connectorId, 
+          coupon_code: couponCode, 
+          station_name: stationName 
+        };
+        console.log(`[proceedWithAIReport] 📤 Request payload:`, body);
+        console.log(`[proceedWithAIReport] Making POST to ${API_URL}/generate-report`);
+        console.log(`[proceedWithAIReport] 🔑 Auth token present:`, !!token);
+        
+        const response = await fetchWithTimeout(`${API_URL}/generate-report`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { 'Authorization': `Bearer ${token}` }),
+          },
+          body: JSON.stringify(body),
+        });
+
+        console.log(`[proceedWithAIReport] Response status: ${response.status}`);
+
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}));
+          const errorMsg = error.error || `Generation failed: ${response.status}`;
+          console.error(`[proceedWithAIReport] ❌ API error:`, errorMsg);
+          lastError = errorMsg;
+          
+          // Don't retry on auth/payment errors
+          if (response.status === 401 || response.status === 402 || response.status === 409) {
+            throw new Error(errorMsg);
+          }
+          
+          // Retry on 5xx errors or network issues
+          if (attempt < MAX_RETRIES && response.status >= 500) {
+            console.log(`[proceedWithAIReport] Retrying in 2 seconds...`);
+            await new Promise(r => setTimeout(r, 2000));
+            continue;
+          }
+          
+          throw new Error(errorMsg);
+        }
+
+        const reportData = await response.json();
+        console.log(`[proceedWithAIReport] ✅ Got response:`, {
+          s3Url: reportData.s3Url,
+          status: reportData.status,
           totalSamples: reportData.totalSamples,
           totalAnomalies: reportData.totalAnomalies,
-          anomalies: reportData.anomalies,
-          status: reportData.status
+          recommendationsCount: reportData.recommendations?.length
+        });
+        
+        // Update modal with image URL, recommendations, and AI report metrics
+        const recsToSet = reportData.recommendations || [];
+        console.log('[proceedWithAIReport] Setting recommendations:', recsToSet);
+        
+        setReportModal((prev) => ({
+          ...prev,
+          aiImageUrl: reportData.s3Url,
+          aiLoading: false,
+          aiError: '',
+          recommendations: recsToSet,
+          // Store AI report metrics for PDF generation
+          aiReportData: {
+            totalSamples: reportData.totalSamples,
+            totalAnomalies: reportData.totalAnomalies,
+            anomalies: reportData.anomalies,
+            status: reportData.status
+          }
+        }));
+        
+        console.log(`[proceedWithAIReport] ===== SUCCESS! =====`);
+        return; // Success!
+      } catch (error) {
+        console.error(`[proceedWithAIReport] ❌ Attempt ${attempt} failed:`, error);
+        lastError = error instanceof Error ? error.message : 'Failed to generate AI health report';
+        
+        if (attempt < MAX_RETRIES) {
+          console.log(`[proceedWithAIReport] Waiting 2 seconds before retry...`);
+          await new Promise(r => setTimeout(r, 2000));
         }
-      }));
-    } catch (error) {
-      console.error('AI Health Report Error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to generate AI health report';
-
-      if (errorMessage.includes('fetch') || errorMessage.includes('NetworkError')) {
-        setReportModal((prev) => ({
-          ...prev,
-          aiLoading: false,
-          aiError: 'Cannot reach backend server. Please try again.'
-        }));
-      } else {
-        setReportModal((prev) => ({
-          ...prev,
-          aiLoading: false,
-          aiError: errorMessage
-        }));
       }
+    }
+    
+    // All retries exhausted
+    console.error('[proceedWithAIReport] ❌ All attempts failed');
+    
+    if (lastError.includes('timeout') || lastError.includes('AbortError')) {
+      setReportModal((prev) => ({
+        ...prev,
+        aiLoading: false,
+        aiError: 'Report generation is taking too long. The ML backend may be busy. Please try again in a few moments.',
+        paymentPending: false,
+        paymentError: ''
+      }));
+    } else if (lastError.includes('fetch') || lastError.includes('NetworkError') || lastError.includes('ECONNREFUSED')) {
+      setReportModal((prev) => ({
+        ...prev,
+        aiLoading: false,
+        aiError: `Cannot reach backend server at ${API_URL}. Please check:\n1. Your internet connection\n2. If the backend is running\n3. Try again in a moment`,
+        paymentPending: false,
+        paymentError: ''
+      }));
+    } else if (lastError.includes('insufficient') || lastError.includes('credits')) {
+      setReportModal((prev) => ({
+        ...prev,
+        aiLoading: false,
+        aiError: lastError,
+        paymentPending: false,
+        paymentError: ''
+      }));
+    } else {
+      setReportModal((prev) => ({
+        ...prev,
+        aiLoading: false,
+        aiError: lastError || 'Failed to generate AI health report after 3 attempts. Please try again.',
+        paymentPending: false,
+        paymentError: ''
+      }));
     }
   };
 
@@ -2308,7 +2544,7 @@ const ChargingStations: React.FC = () => {
                   setCouponModalState({ ...couponModalState, open: false });
                   setTempCouponInput('');
                 }}
-                className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-semibold hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
@@ -2322,7 +2558,7 @@ const ChargingStations: React.FC = () => {
                   }
                 }}
                 disabled={creditsLoading || (user ? availableCredits < 1 : false)}
-                className={`flex-1 px-4 py-3 font-semibold rounded-lg transition-all shadow-lg hover:shadow-xl ${
+                className={`flex-1 px-4 py-2.5 rounded-lg text-white font-semibold transition-all ${
                   creditsLoading || (user ? availableCredits < 1 : false)
                     ? 'bg-emerald-200 text-emerald-700 cursor-not-allowed'
                     : 'bg-emerald-600 hover:bg-emerald-700 text-white'
@@ -2332,7 +2568,7 @@ const ChargingStations: React.FC = () => {
               </button>
               <button
                 onClick={handleCouponSubmit}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold rounded-lg transition-all shadow-lg hover:shadow-xl"
+                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold rounded-lg transition-all shadow-lg hover:shadow-xl"
               >
                 {(() => {
                   const info = getCouponInfo(tempCouponInput);

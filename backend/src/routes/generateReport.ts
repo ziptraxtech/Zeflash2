@@ -39,6 +39,7 @@ async function triggerInference(evseId: string, connectorId: number, stationName
     console.log(`[generateReport] TRIGGERING INFERENCE`);
     console.log(`[generateReport] Using ML Backend: ${ML_BACKEND_URL}`);
     console.log(`[generateReport] Endpoint: POST ${url}`);
+    console.log(`[generateReport] EVSE ID: ${evseId}, Connector: ${connectorId}`);
     console.log(`========================================\n`);
     
     const body: any = { 
@@ -52,15 +53,19 @@ async function triggerInference(evseId: string, connectorId: number, stationName
       body.station_name = stationName;
     }
     
+    console.log(`[generateReport] Request body:`, JSON.stringify(body, null, 2));
+    
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
     
+    console.log(`[generateReport] Response status: ${res.status}`);
+    
     if (!res.ok) {
       const text = await res.text();
-      console.error(`[generateReport] ML trigger failed: ${res.status} — ${text}`);
+      console.error(`[generateReport] ❌ ML trigger failed: ${res.status} — ${text}`);
       throw new Error(
         `ML trigger failed (${res.status}). ` +
         `Is the ML backend running at ${ML_BACKEND_URL}? ` +
@@ -73,11 +78,12 @@ async function triggerInference(evseId: string, connectorId: number, stationName
     return data as { job_id: string };
   } catch (error: any) {
     console.error('[generateReport] ❌ Trigger error:', error.message);
+    console.error('[generateReport] Error details:', error);
     // Check if it's a connection error
-    if (error.message.includes('ECONNREFUSED')) {
+    if (error.message.includes('ECONNREFUSED') || error.message.includes('fetch')) {
       throw new Error(
         `Cannot connect to ML backend at ${ML_BACKEND_URL}. ` +
-        `Please ensure the ML server is running: python run_server_local.py`
+        `Please ensure the ML server is running. Error: ${error.message}`
       );
     }
     throw error;
