@@ -26,14 +26,23 @@ createOrderRouter.post('/', requireAuth, async (req: AuthRequest, res: Response)
 
     // Calculate amount based on whether it's a custom plan or predefined pack
     let amountPaise: number;
+    let selectedPack: string = 'unknown';
+    
     if (isCustom && months) {
       amountPaise = calculateCustomPlanPrice(credits, months);
+      selectedPack = `custom-${months}m`;
     } else if (planName && PLAN_PACKS[planName]) {
       amountPaise = PLAN_PACKS[planName].price;
+      selectedPack = planName;
+      console.log(`[createOrder] Plan "${planName}" found in PLAN_PACKS: ${amountPaise} paise (₹${amountPaise / 100}), ${credits} credits`);
     } else {
-      // Fallback to trial price
-      amountPaise = credits * 29900;
+      // If plan not found, log it and use the trial price as fallback
+      console.warn(`[createOrder] Plan "${planName}" NOT found in PLAN_PACKS. Using trial price (23500 paise) as fallback. Available plans: ${Object.keys(PLAN_PACKS).join(', ')}`);
+      amountPaise = PLAN_PACKS['trial'].price; // Use trial price (₹235) as fallback, not credits * 29900
+      selectedPack = 'trial-fallback';
     }
+
+    console.log(`[createOrder] Creating order: ${selectedPack}, amount=${amountPaise} paise (₹${amountPaise / 100}), credits=${credits}`);
 
     const order = await razorpay.orders.create({
       amount: amountPaise,
