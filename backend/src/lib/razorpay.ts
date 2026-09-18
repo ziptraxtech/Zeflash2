@@ -5,24 +5,23 @@ export const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET!,
 });
 
-// Plan-based credit packs: plan name -> {credits, price in paise}
+// Plan-based credit packs: plan name -> {credits, price in rupees}
 //
-// Prices are GST-INCLUSIVE in PAISE (amount / 100 = rupees).
-// Must match exactly: Math.round(base * 1.18) * 100 paise
+// Prices are GST-INCLUSIVE in RUPEES (not paise).
+// Must match exactly: Math.round(base * 1.18)
 // where `base` is the card price in src/config/pricing.ts (PLAN_BASE_PRICE in rupees).
-// Frontend displays: ₹(price / 100).
 // This is the amount Razorpay actually charges, so any change here must be
 // mirrored in pricing.ts or the customer sees a different number than they pay.
 export const PLAN_PACKS: Record<string, { credits: number; price: number }> = {
-  'test': { credits: 1, price: 100 },                // ₹1 (base ₹1 + 18% GST → ₹1.18 → rounded ₹1)
-  'trial': { credits: 1, price: 23500 },             // ₹235 (base ₹199 + 18% GST → ₹234.82 → rounded ₹235)
-  'core': { credits: 4, price: 176900 },             // ₹1,769 (base ₹1,499 + 18% GST → ₹1,768.82 → rounded ₹1,769)
-  'premium': { credits: 6, price: 294900 },          // ₹2,949 (base ₹2,499 + 18% GST → ₹2,948.82 → rounded ₹2,949)
-  'elite': { credits: 12, price: 589900 },           // ₹5,899 (base ₹4,999 + 18% GST → ₹5,898.82 → rounded ₹5,899)
+  'test': { credits: 1, price: 1 },                   // ₹1 (base ₹1 + 18% GST → ₹1.18 → rounded ₹1)
+  'trial': { credits: 1, price: 235 },                // ₹235 (base ₹199 + 18% GST → ₹234.82 → rounded ₹235)
+  'core': { credits: 4, price: 1769 },                // ₹1,769 (base ₹1,499 + 18% GST → ₹1,768.82 → rounded ₹1,769)
+  'premium': { credits: 6, price: 2949 },             // ₹2,949 (base ₹2,499 + 18% GST → ₹2,948.82 → rounded ₹2,949)
+  'elite': { credits: 12, price: 5899 },              // ₹5,899 (base ₹4,999 + 18% GST → ₹5,898.82 → rounded ₹5,899)
   // Legacy packs - no longer shown as cards, still reachable by direct link.
-  'starter': { credits: 6, price: 177000 },          // ₹1,770 (base ₹1,500 + 18% GST → ₹1,770)
-  'value': { credits: 12, price: 354000 },           // ₹3,540 (base ₹3,000 + 18% GST → ₹3,540)
-  'smart': { credits: 24, price: 708000 },           // ₹7,080 (base ₹6,000 + 18% GST → ₹7,080)
+  'starter': { credits: 6, price: 1770 },             // ₹1,770 (base ₹1,500 + 18% GST → ₹1,770)
+  'value': { credits: 12, price: 3540 },              // ₹3,540 (base ₹3,000 + 18% GST → ₹3,540)
+  'smart': { credits: 24, price: 7080 },              // ₹7,080 (base ₹6,000 + 18% GST → ₹7,080)
 };
 
 // Custom plans: per-test rupee price by validity, mirroring CUSTOM_PRICE_PER_TEST

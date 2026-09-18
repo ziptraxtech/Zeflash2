@@ -25,27 +25,39 @@ createOrderRouter.post('/', requireAuth, async (req: AuthRequest, res: Response)
     if (!user) return res.status(500).json({ error: 'Failed to resolve user' });
 
     // Calculate amount based on whether it's a custom plan or predefined pack
-    let amountPaise: number;
+    // All amounts are in RUPEES (not paise)
+    let amountInRupees: number;
     let selectedPack: string = 'unknown';
     
     if (isCustom && months) {
-      amountPaise = calculateCustomPlanPrice(credits, months);
+      // Custom plan: calculate per-test price with GST, then multiply by tests
+      const priceMap: { [key: number]: number } = {
+        12: 300,  // ₹300/test for 12 months
+        18: 290,  // ₹290/test for 18 months
+        24: 280,  // ₹280/test for 24 months
+      };
+      const pricePerTest = priceMap[months] || 300;
+      const subtotal = credits * pricePerTest;
+      amountInRupees = Math.round(subtotal * 1.18); // Apply GST and round to rupee
       selectedPack = `custom-${months}m`;
     } else if (planName && PLAN_PACKS[planName]) {
-      amountPaise = PLAN_PACKS[planName].price;
+      amountInRupees = PLAN_PACKS[planName].price;
       selectedPack = planName;
-      console.log(`[createOrder] Plan "${planName}" found in PLAN_PACKS: ${amountPaise} paise (₹${amountPaise / 100}), ${credits} credits`);
+      console.log(`[createOrder] Plan "${planName}" found: ₹${amountInRupees}, ${credits} credits`);
     } else {
-      // If plan not found, log it and use the trial price as fallback
-      console.warn(`[createOrder] Plan "${planName}" NOT found in PLAN_PACKS. Using trial price (23500 paise) as fallback. Available plans: ${Object.keys(PLAN_PACKS).join(', ')}`);
-      amountPaise = PLAN_PACKS['trial'].price; // Use trial price (₹235) as fallback, not credits * 29900
+      // If plan not found, use trial price as fallback
+      console.warn(`[createOrder] Plan "${planName}" NOT found in PLAN_PACKS. Using trial price (₹235) as fallback. Available: ${Object.keys(PLAN_PACKS).join(', ')}`);
+      amountInRupees = PLAN_PACKS['trial'].price;
       selectedPack = 'trial-fallback';
     }
 
-    console.log(`[createOrder] Creating order: ${selectedPack}, amount=${amountPaise} paise (₹${amountPaise / 100}), credits=${credits}`);
+    console.log(`[createOrder] Creating order: ${selectedPack}, amount=₹${amountInRupees}, credits=${credits}`);
+
+    // Razorpay expects amount in paise (multiply by 100)
+    const amountInPaise = amountInRupees * 100;
 
     const order = await razorpay.orders.create({
-      amount: amountPaise,
+      amount: amountInPaise,
       currency: 'INR',
       receipt: `zeflash_${Date.now()}`,
       notes: { 
@@ -61,7 +73,7 @@ createOrderRouter.post('/', requireAuth, async (req: AuthRequest, res: Response)
       data: {
         userId: user.id,
         razorpayOrderId: order.id,
-        amount: amountPaise,
+        amount: amountInRupees,
         credits,
         status: 'created',
         ...(couponCode && { couponCode }),
@@ -70,7 +82,7 @@ createOrderRouter.post('/', requireAuth, async (req: AuthRequest, res: Response)
 
     return res.json({ 
       orderId: order.id, 
-      amount: amountPaise, 
+      amount: amountInRupees,  // Return in RUPEES for frontend comparison
       currency: 'INR', 
       credits, 
       keyId: process.env.RAZORPAY_KEY_ID 
