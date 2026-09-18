@@ -254,7 +254,25 @@ setErrorMessage(null);
       }
 
       const orderData = orderPayload;
-      
+
+      // The backend (PLAN_PACKS) decides what Razorpay actually charges — this
+      // page only displays a number. If the two disagree, the customer is about
+      // to be charged something they were never shown, so stop here rather than
+      // opening the modal on a different amount. In practice this means the
+      // backend is running an older build than the frontend and needs a deploy.
+      const expectedPaise = withGst(planDetails.totalPrice) * 100;
+      if (typeof orderData.amount === 'number' && orderData.amount !== expectedPaise) {
+        console.error(
+          `[checkout] price mismatch for plan "${plan}": page shows ₹${expectedPaise / 100}, ` +
+          `backend order is ₹${orderData.amount / 100}. Backend PLAN_PACKS is out of date.`
+        );
+        throw new Error(
+          `Payment blocked: this page shows ₹${(expectedPaise / 100).toLocaleString('en-IN')} but the ` +
+          `payment gateway was set up for ₹${(orderData.amount / 100).toLocaleString('en-IN')}. ` +
+          `Please contact support — you have not been charged.`
+        );
+      }
+
       // Load Razorpay
       const loaded = await loadRazorpayScript();
       if (!loaded || typeof window.Razorpay === 'undefined') {

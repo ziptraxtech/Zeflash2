@@ -265,23 +265,35 @@ const ChargingStations: React.FC = () => {
     }
   };
 
-  // Coupon validation and pricing function
-  const getCouponInfo = (code: string): { valid: boolean; amount: number; discount: number } => {
+  // Pricing constants (base price + GST)
+  const BASE_PRICE = 299; // Base price in ₹
+  const GST_RATE = 0.18; // 18% GST
+  const GST_AMOUNT = Math.round(BASE_PRICE * GST_RATE * 100) / 100; // ₹53.82
+  const TOTAL_PRICE_WITH_GST = BASE_PRICE + GST_AMOUNT; // ₹352.82
+
+  // Coupon validation and pricing function (returns TOTAL price including GST)
+  const getCouponInfo = (code: string): { valid: boolean; amount: number; discount: number; baseAmount: number; gst: number } => {
     const upperCode = code.toUpperCase();
     // EVChamp trial coupons are verified and redeemed by the Zeflash backend
     // when the report is requested. Treat the prefix as a free report here so
     // a legitimate emailed code reaches that server-side verification step.
     if (/^EVZ-[A-F0-9]{10}$/.test(upperCode)) {
-      return { valid: true, amount: 0, discount: 299 };
+      return { valid: true, amount: 0, discount: TOTAL_PRICE_WITH_GST, baseAmount: BASE_PRICE, gst: GST_AMOUNT };
     }
     if (upperCode === 'ZEFLASHCODERS') {
-      return { valid: true, amount: 0, discount: 299 }; // Free for testing
+      return { valid: true, amount: 0, discount: TOTAL_PRICE_WITH_GST, baseAmount: BASE_PRICE, gst: GST_AMOUNT }; // Free for testing
     } else if (upperCode === 'TESTCHARJ') {
-      return { valid: true, amount: 149, discount: 150 }; // ₹149 (50% off)
+      // 50% off base price, then add GST to discounted amount
+      const discountedBase = 149;
+      const discountedGST = Math.round(discountedBase * GST_RATE * 100) / 100;
+      return { valid: true, amount: discountedBase + discountedGST, discount: (BASE_PRICE + GST_AMOUNT) - (discountedBase + discountedGST), baseAmount: discountedBase, gst: discountedGST };
     } else if (upperCode === 'ZIPTRAX') {
-      return { valid: true, amount: 1, discount: 298 }; // ₹1 (₹298 off)
+      // ₹1 base, then add GST
+      const discountedBase = 1;
+      const discountedGST = Math.round(discountedBase * GST_RATE * 100) / 100;
+      return { valid: true, amount: discountedBase + discountedGST, discount: (BASE_PRICE + GST_AMOUNT) - (discountedBase + discountedGST), baseAmount: discountedBase, gst: discountedGST };
     }
-    return { valid: false, amount: 299, discount: 0 }; // Default price
+    return { valid: false, amount: TOTAL_PRICE_WITH_GST, discount: 0, baseAmount: BASE_PRICE, gst: GST_AMOUNT }; // Default price with GST
   };
 
   // Handle coupon modal submission
@@ -314,8 +326,8 @@ const ChargingStations: React.FC = () => {
       proceedWithAIReport(evseId, deviceId, couponCode, stationName);
     } else {
       // No coupon or paid coupon - proceed with payment
-      // Default to ₹299 if no coupon, or use coupon amount if provided
-      const amountToCharge = couponInfo.valid ? couponInfo.amount : 299;
+      // Default to TOTAL_PRICE_WITH_GST if no coupon, or use coupon amount if provided
+      const amountToCharge = couponInfo.valid ? couponInfo.amount : TOTAL_PRICE_WITH_GST;
       setReportModal((prev) => ({ ...prev, paymentPending: true, paymentError: '', aiError: '', aiImageUrl: '' }));
       proceedWithPayment(evseId, deviceId, amountToCharge, couponCode, stationName);
     }
@@ -1938,7 +1950,7 @@ const ChargingStations: React.FC = () => {
                       </p>
                       <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 bg-orange-100 border border-orange-300 rounded-lg">
                         <Zap className="w-4 h-4 text-orange-600" />
-                        <span className="text-xs font-semibold text-orange-700">₹299 - Premium AI Report</span>
+                        <span className="text-xs font-semibold text-orange-700">₹{TOTAL_PRICE_WITH_GST.toFixed(2)} - Premium AI Report (incl. 18% GST)</span>
                       </div>
                     </div>
 
@@ -2476,23 +2488,51 @@ const ChargingStations: React.FC = () => {
                   {tempCouponInput ? (
                     <>
                       <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Original Price:</span>
-                        <span className="text-gray-500 line-through">₹299</span>
+                        <span className="text-gray-600">Original Price (with GST):</span>
+                        <span className="text-gray-500 line-through">₹{TOTAL_PRICE_WITH_GST.toFixed(2)}</span>
                       </div>
                       {(() => {
                         const info = getCouponInfo(tempCouponInput);
+                        if (info.amount === 0) {
+                          return (
+                            <div className="flex justify-between items-center font-bold text-lg border-t border-green-200 pt-2 text-green-600">
+                              <span>You Pay:</span>
+                              <span>FREE</span>
+                            </div>
+                          );
+                        }
                         return (
-                          <div className="flex justify-between items-center font-bold text-lg border-t border-purple-200 pt-2">
-                            <span className="text-gray-900">You Pay:</span>
-                            <span className="text-purple-600">₹{info.amount}</span>
+                          <div>
+                            <div className="flex justify-between items-center text-xs text-gray-600 border-t border-purple-200 pt-2">
+                              <span>Base Price:</span>
+                              <span>₹{info.baseAmount.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-xs text-gray-600">
+                              <span>GST (18%):</span>
+                              <span>₹{info.gst.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center font-bold text-lg border-t border-purple-200 pt-2">
+                              <span className="text-gray-900">Total (You Pay):</span>
+                              <span className="text-purple-600">₹{info.amount.toFixed(2)}</span>
+                            </div>
                           </div>
                         );
                       })()}
                     </>
                   ) : (
-                    <div className="flex justify-between items-center font-bold text-lg">
-                      <span className="text-gray-900">Price:</span>
-                      <span className="text-purple-600">₹299</span>
+                    <div>
+                      <div className="flex justify-between items-center text-xs text-gray-600">
+                        <span>Base Price:</span>
+                        <span>₹{BASE_PRICE.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs text-gray-600">
+                        <span>GST (18%):</span>
+                        <span>₹{GST_AMOUNT.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center font-bold text-lg border-t border-purple-200 pt-2">
+                        <span className="text-gray-900">Total (You Pay):</span>
+                        <span className="text-purple-600">₹{TOTAL_PRICE_WITH_GST.toFixed(2)}</span>
+                      </div>
                     </div>
                   )}
                 </div>
