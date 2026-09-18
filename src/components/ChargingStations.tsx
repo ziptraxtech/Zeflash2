@@ -32,44 +32,6 @@ import {
   Legend
 } from 'recharts';
 
-// ============================================
-// DEBUG & ERROR LOGGING UTILITIES
-// ============================================
-const DEBUG_LOG = {
-  info: (section: string, message: string, data?: any) => {
-    console.log(`[${section}]`, message, data || '');
-  },
-  error: (section: string, message: string, error?: any) => {
-    console.error(`[${section}] ❌`, message, error || '');
-  },
-  warn: (section: string, message: string, data?: any) => {
-    console.warn(`[${section}] ⚠️ `, message, data || '');
-  },
-  success: (section: string, message: string, data?: any) => {
-    console.log(`[${section}] ✅`, message, data || '');
-  }
-};
-
-// Check S3 bucket accessibility
-const checkS3Accessibility = async (s3Url: string): Promise<{accessible: boolean; status: number; error?: string}> => {
-  try {
-    const response = await fetch(s3Url, { method: 'HEAD', mode: 'cors' });
-    return { accessible: response.ok, status: response.status };
-  } catch (error) {
-    return { accessible: false, status: 0, error: (error as Error).message };
-  }
-};
-
-// Test API endpoint
-const testApiEndpoint = async (endpoint: string): Promise<{reachable: boolean; statusCode?: number; error?: string}> => {
-  try {
-    const response = await fetch(endpoint, { method: 'GET' });
-    return { reachable: response.ok, statusCode: response.status };
-  } catch (error) {
-    return { reachable: false, error: (error as Error).message };
-  }
-};
-
 type CsvRow = {
   'S.No'?: string;
   'Station ID'?: string;
