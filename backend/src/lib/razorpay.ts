@@ -25,7 +25,7 @@ export const PLAN_PACKS: Record<string, { credits: number; price: number }> = {
 };
 
 // Custom plans: per-test rupee price by validity, mirroring CUSTOM_PRICE_PER_TEST
-// in src/config/pricing.ts.
+// in src/config/pricing.ts. Returns amount in RUPEES (not paise).
 export function calculateCustomPlanPrice(tests: number, months: number): number {
   const priceMap: { [key: number]: number } = {
     12: 300,  // ₹300/test for 12 months
@@ -34,8 +34,6 @@ export function calculateCustomPlanPrice(tests: number, months: number): number 
   };
   const pricePerTest = priceMap[months] || 300;
   const subtotal = tests * pricePerTest;
-  // Round to the rupee FIRST, exactly as the checkout summary does, then convert
-  // to paise. Rounding after the paise conversion drifts by up to 50 paise from
-  // the displayed total (e.g. 3 tests x ₹290 = ₹870 -> ₹1,026.60 vs ₹1,027).
-  return Math.round(subtotal * 1.18) * 100;
+  // Return amount in RUPEES (round to the nearest rupee with 18% GST included)
+  return Math.round(subtotal * 1.18);
 }
