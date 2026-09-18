@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Zap } from 'lucide-react';
 import CreditsWallet from './CreditsWallet';
+import { PLAN_BASE_PRICE, CUSTOM_PRICE_PER_TEST } from '../config/pricing';
 
 const PricingPlans: React.FC = () => {
   const navigate = useNavigate();
@@ -25,12 +26,7 @@ const PricingPlans: React.FC = () => {
         // 12 months: ₹300/test
         // 18 months: ₹290/test
         // 24 months: ₹280/test
-        const priceMap: { [key: number]: number } = {
-          12: 300,
-          18: 290,
-          24: 280
-        };
-        const pricePerTest = priceMap[months];
+        const pricePerTest = CUSTOM_PRICE_PER_TEST[months];
         const totalPrice = tests * pricePerTest;
         
         // Update displays
@@ -67,7 +63,7 @@ const PricingPlans: React.FC = () => {
       id: 'trial',
       name: 'One Time',
       tagline: 'Try it once',
-      price: 199,
+      price: PLAN_BASE_PRICE.trial,
       priceNote: '1 Zeflash AI diagnostic',
       tests: 1,
       months: 0,
@@ -86,7 +82,7 @@ const PricingPlans: React.FC = () => {
       id: 'core',
       name: 'Core Pack',
       tagline: 'Everyday Driver',
-      price: 1199,
+      price: PLAN_BASE_PRICE.core,
       priceNote: '4 tests/year (Quarterly)',
       tests: 4,
       months: 12,
@@ -106,7 +102,7 @@ const PricingPlans: React.FC = () => {
       id: 'premium',
       name: 'Premium Pack',
       tagline: 'Pro & Commercial',
-      price: 2499,
+      price: PLAN_BASE_PRICE.premium,
       priceNote: '6 tests/year (Bi-monthly)',
       tests: 6,
       months: 12,
@@ -127,7 +123,7 @@ const PricingPlans: React.FC = () => {
       id: 'elite',
       name: 'Elite Pack',
       tagline: 'High-Grade & Luxury',
-      price: 4999,
+      price: PLAN_BASE_PRICE.elite,
       priceNote: '12 tests/year (Monthly)',
       tests: 12,
       months: 12,

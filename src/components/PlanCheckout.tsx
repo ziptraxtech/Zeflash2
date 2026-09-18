@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@clerk/clerk-react';
 import { API_URL } from '../config/api';
+import { PLAN_BASE_PRICE, gstAmount, withGst } from '../config/pricing';
 import {
   ArrowLeft,
   ShieldCheck,
@@ -51,8 +52,8 @@ const PlanCheckout: React.FC = () => {
           name: 'Test Plan',
           tests: 1,
           validity: 0,
-          pricePerTest: 1,
-          totalPrice: 1,
+          pricePerTest: Math.round(PLAN_BASE_PRICE.test / 1),
+          totalPrice: PLAN_BASE_PRICE.test,
           features: [
             '1 complete diagnostic test',
             'Instant AI health report',
@@ -66,8 +67,8 @@ const PlanCheckout: React.FC = () => {
           name: 'One Time',
           tests: 1,
           validity: 0,
-          pricePerTest: 199,
-          totalPrice: 199,
+          pricePerTest: Math.round(PLAN_BASE_PRICE.trial / 1),
+          totalPrice: PLAN_BASE_PRICE.trial,
           features: [
             '1 complete 20-min diagnostic',
             'Instant health report',
@@ -82,8 +83,8 @@ const PlanCheckout: React.FC = () => {
           name: 'Core Pack',
           tests: 4,
           validity: 12,
-          pricePerTest: Math.round(1199 / 4),
-          totalPrice: 1199,
+          pricePerTest: Math.round(PLAN_BASE_PRICE.core / 4),
+          totalPrice: PLAN_BASE_PRICE.core,
           features: [
             'Free Unlimited EV Charger & Service Center Discovery',
             'Free Digital Garage & Renew Vehicle Insurance',
@@ -99,8 +100,8 @@ const PlanCheckout: React.FC = () => {
           name: 'Premium Pack',
           tests: 6,
           validity: 12,
-          pricePerTest: Math.round(2499 / 6),
-          totalPrice: 2499,
+          pricePerTest: Math.round(PLAN_BASE_PRICE.premium / 6),
+          totalPrice: PLAN_BASE_PRICE.premium,
           features: [
             'Free Unlimited EV Charger & Service Center Discovery',
             'Free Digital Garage & Renew Vehicle Insurance',
@@ -117,8 +118,8 @@ const PlanCheckout: React.FC = () => {
           name: 'Elite Pack',
           tests: 12,
           validity: 12,
-          pricePerTest: Math.round(4999 / 12),
-          totalPrice: 4999,
+          pricePerTest: Math.round(PLAN_BASE_PRICE.elite / 12),
+          totalPrice: PLAN_BASE_PRICE.elite,
           features: [
             'Free Unlimited EV Charger & Service Center Discovery',
             'Free Digital Garage & Renew Vehicle Insurance',
@@ -135,8 +136,8 @@ const PlanCheckout: React.FC = () => {
           name: 'Starter Pack',
           tests: 6,
           validity: 12,
-          pricePerTest: 250,
-          totalPrice: 1500,
+          pricePerTest: Math.round(PLAN_BASE_PRICE.starter / 6),
+          totalPrice: PLAN_BASE_PRICE.starter,
           features: [
             '6 AI diagnostic tests',
             '1 year validity',
@@ -152,8 +153,8 @@ const PlanCheckout: React.FC = () => {
           name: 'Value Pack',
           tests: 12,
           validity: 12,
-          pricePerTest: 250,
-          totalPrice: 3000,
+          pricePerTest: Math.round(PLAN_BASE_PRICE.value / 12),
+          totalPrice: PLAN_BASE_PRICE.value,
           features: [
             '12 AI diagnostic tests',
             '1 year validity',
@@ -168,8 +169,8 @@ const PlanCheckout: React.FC = () => {
           name: 'Smart Pack',
           tests: 24,
           validity: 24,
-          pricePerTest: 250,
-          totalPrice: 6000,
+          pricePerTest: Math.round(PLAN_BASE_PRICE.smart / 24),
+          totalPrice: PLAN_BASE_PRICE.smart,
           features: [
             '24 AI diagnostic tests',
             '2 years validity',
@@ -439,11 +440,11 @@ setErrorMessage(null);
                   <div className="border-t border-blue-200 pt-3">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-sm text-blue-700 font-medium">GST (18%)</p>
-                      <p className="text-sm font-semibold text-blue-800">₹{Math.round(planDetails.totalPrice * 0.18).toLocaleString('en-IN')}</p>
+                      <p className="text-sm font-semibold text-blue-800">₹{gstAmount(planDetails.totalPrice).toLocaleString('en-IN')}</p>
                     </div>
                     <div className="flex items-center justify-between pt-2 border-t border-blue-200">
                       <p className="text-base font-bold text-blue-900">Total Amount</p>
-                      <p className="text-2xl font-extrabold text-blue-900">₹{Math.round(planDetails.totalPrice * 1.18).toLocaleString('en-IN')}</p>
+                      <p className="text-2xl font-extrabold text-blue-900">₹{withGst(planDetails.totalPrice).toLocaleString('en-IN')}</p>
                     </div>
                   </div>
                 </div>
@@ -464,7 +465,7 @@ setErrorMessage(null);
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-base font-semibold text-gray-900">Payment</h3>
                 <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-600">
-                  ₹{Math.round(planDetails.totalPrice * 1.18).toLocaleString('en-IN')}
+                  ₹{withGst(planDetails.totalPrice).toLocaleString('en-IN')}
                 </span>
               </div>
               <p className="text-xs text-gray-500 mb-4">
@@ -493,7 +494,7 @@ setErrorMessage(null);
                 ) : (
                   <>
                     <Lock size={16} />
-                    Pay ₹{Math.round(planDetails.totalPrice * 1.18).toLocaleString('en-IN')}
+                    Pay ₹{withGst(planDetails.totalPrice).toLocaleString('en-IN')}
                   </>
                 )}
               </button>
