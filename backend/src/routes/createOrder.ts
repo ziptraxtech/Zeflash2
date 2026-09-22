@@ -57,6 +57,8 @@ createOrderRouter.post('/', requireAuth, async (req: AuthRequest, res: Response)
       },
     });
 
+    console.log(`[createOrder] Razorpay order created: ${order.id}, amount in paise: ${order.amount}`);
+
     await prisma.payment.create({
       data: {
         userId: user.id,
@@ -68,13 +70,17 @@ createOrderRouter.post('/', requireAuth, async (req: AuthRequest, res: Response)
       },
     });
 
-    return res.json({ 
+    const response = { 
       orderId: order.id, 
       amount: payable, // rupees — the frontend compares against this
       currency: 'INR', 
       credits, 
       keyId: process.env.RAZORPAY_KEY_ID 
-    });
+    };
+    
+    console.log(`[createOrder] Sending to frontend: amount=${response.amount} (rupees), orderId=${response.orderId}`);
+    
+    return res.json(response);
   } catch (err: any) {
     console.error('create-order error:', err);
     return res.status(500).json({ error: err.message });

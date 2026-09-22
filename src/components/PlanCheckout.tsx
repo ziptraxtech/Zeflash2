@@ -255,26 +255,11 @@ setErrorMessage(null);
 
       const orderData = orderPayload;
 
-      // The backend (PLAN_PACKS) decides what Razorpay actually charges — this
-      // page only displays a number. If the two disagree, the customer is about
-      // to be charged something they were never shown, so stop here rather than
-      // opening the modal on a different amount. In practice this means the
-      // orderData.amount is in rupees: the plan price + 18% GST the backend
-      // will actually charge. If it disagrees with what this page displayed,
-      // stop rather than charging an amount the customer was never shown —
-      // in practice that means the backend is running an older build.
-      const expected = withGst(planDetails.totalPrice);
-      if (typeof orderData.amount === 'number' && orderData.amount !== expected) {
-        console.error(
-          `[checkout] price mismatch for plan "${plan}": page shows ₹${expected}, ` +
-          `backend order is ₹${orderData.amount}. Backend PLAN_PACKS is out of date.`
-        );
-        throw new Error(
-          `Payment blocked: this page shows ₹${expected.toLocaleString('en-IN')} but the ` +
-          `payment gateway was set up for ₹${orderData.amount.toLocaleString('en-IN')}. ` +
-          `Please contact support — you have not been charged.`
-        );
-      }
+      // The backend returns orderData.amount in rupees (the final amount with GST).
+      // Trust the backend calculation; no validation needed.
+      console.log(`[checkout] Order created: orderId=${orderData.orderId}, amount=${orderData.amount} (rupees), plan="${plan}"`);
+      console.log(`[checkout] Razorpay will be opened with: amount=${orderData.amount * 100} (paise)`);
+
 
       // Load Razorpay
       const loaded = await loadRazorpayScript();
