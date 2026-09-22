@@ -18,7 +18,7 @@ declare global {
 
   interface RazorpayOptions {
     key: string;
-    amount: number;
+    amount?: number; // omit when order_id is set — the order carries the amount
     currency: string;
     name?: string;
     description?: string;

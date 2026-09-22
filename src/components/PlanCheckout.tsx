@@ -52,8 +52,8 @@ const PlanCheckout: React.FC = () => {
           name: 'Test Plan',
           tests: 1,
           validity: 0,
-          pricePerTest: 1,
-          totalPrice: 1,  // FINAL price with 18% GST included
+          pricePerTest: Math.round(PLAN_BASE_PRICE.test / 1),
+          totalPrice: PLAN_BASE_PRICE.test,
           features: [
             '1 complete diagnostic test',
             'Instant AI health report',
@@ -67,8 +67,8 @@ const PlanCheckout: React.FC = () => {
           name: 'One Time',
           tests: 1,
           validity: 0,
-          pricePerTest: 235,
-          totalPrice: 235,  // FINAL price with 18% GST included
+          pricePerTest: Math.round(PLAN_BASE_PRICE.trial / 1),
+          totalPrice: PLAN_BASE_PRICE.trial,
           features: [
             '1 complete 20-min diagnostic',
             'Instant health report',
@@ -83,8 +83,8 @@ const PlanCheckout: React.FC = () => {
           name: 'Core Pack',
           tests: 4,
           validity: 12,
-          pricePerTest: 442,  // 1769 / 4 = 442.25 rounded to 442
-          totalPrice: 1769,  // FINAL price with 18% GST included
+          pricePerTest: Math.round(PLAN_BASE_PRICE.core / 4),
+          totalPrice: PLAN_BASE_PRICE.core,
           features: [
             'Free Unlimited EV Charger & Service Center Discovery',
             'Free Digital Garage & Renew Vehicle Insurance',
@@ -100,8 +100,8 @@ const PlanCheckout: React.FC = () => {
           name: 'Premium Pack',
           tests: 6,
           validity: 12,
-          pricePerTest: 492,  // 2949 / 6 = 491.5 rounded to 492
-          totalPrice: 2949,  // FINAL price with 18% GST included
+          pricePerTest: Math.round(PLAN_BASE_PRICE.premium / 6),
+          totalPrice: PLAN_BASE_PRICE.premium,
           features: [
             'Free Unlimited EV Charger & Service Center Discovery',
             'Free Digital Garage & Renew Vehicle Insurance',
@@ -118,8 +118,8 @@ const PlanCheckout: React.FC = () => {
           name: 'Elite Pack',
           tests: 12,
           validity: 12,
-          pricePerTest: 492,  // 5899 / 12 = 491.58 rounded to 492
-          totalPrice: 5899,  // FINAL price with 18% GST included
+          pricePerTest: Math.round(PLAN_BASE_PRICE.elite / 12),
+          totalPrice: PLAN_BASE_PRICE.elite,
           features: [
             'Free Unlimited EV Charger & Service Center Discovery',
             'Free Digital Garage & Renew Vehicle Insurance',
@@ -259,16 +259,18 @@ setErrorMessage(null);
       // page only displays a number. If the two disagree, the customer is about
       // to be charged something they were never shown, so stop here rather than
       // opening the modal on a different amount. In practice this means the
-      // backend is running an older build than the frontend and needs a deploy.
-      // NOTE: planDetails.totalPrice is ALREADY the final amount with GST included
-      const expectedAmount = planDetails.totalPrice;
-      if (typeof orderData.amount === 'number' && orderData.amount !== expectedAmount) {
+      // orderData.amount is in rupees: the plan price + 18% GST the backend
+      // will actually charge. If it disagrees with what this page displayed,
+      // stop rather than charging an amount the customer was never shown —
+      // in practice that means the backend is running an older build.
+      const expected = withGst(planDetails.totalPrice);
+      if (typeof orderData.amount === 'number' && orderData.amount !== expected) {
         console.error(
-          `[checkout] price mismatch for plan "${plan}": page shows ₹${expectedAmount}, ` +
+          `[checkout] price mismatch for plan "${plan}": page shows ₹${expected}, ` +
           `backend order is ₹${orderData.amount}. Backend PLAN_PACKS is out of date.`
         );
         throw new Error(
-          `Payment blocked: this page shows ₹${expectedAmount.toLocaleString('en-IN')} but the ` +
+          `Payment blocked: this page shows ₹${expected.toLocaleString('en-IN')} but the ` +
           `payment gateway was set up for ₹${orderData.amount.toLocaleString('en-IN')}. ` +
           `Please contact support — you have not been charged.`
         );
@@ -284,7 +286,6 @@ setErrorMessage(null);
       const options: RazorpayOptions = {
         key: orderData.keyId,
         order_id: orderData.orderId,
-        amount: orderData.amount,  // Amount in rupees (no paise conversion)
         currency: orderData.currency,
         name: 'Zeflash',
         description: planDetails.name,

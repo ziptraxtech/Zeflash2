@@ -90,7 +90,6 @@ const AIReportCheckout: React.FC = () => {
 
     const options: RazorpayOptions = {
       key: orderData.keyId || (import.meta.env.VITE_RAZORPAY_KEY_ID as string),
-      amount: orderData.amount,
       currency: 'INR',
       name: 'Zeflash AI Report',
       description: `Unlock AI insights for ${deviceLabel}`,

@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { getOrCreateUser } from '../services/userService';
-import { razorpay, PLAN_PACKS, calculateCustomPlanPrice } from '../lib/razorpay';
+import { razorpay, PLAN_PACKS, calculateCustomPlanPrice, totalWithGst, toPaise, SINGLE_REPORT_PRICE } from '../lib/razorpay';
 import { prisma } from '../lib/prisma';
 
 export const createOrderRouter = Router();
@@ -24,37 +24,28 @@ createOrderRouter.post('/', requireAuth, async (req: AuthRequest, res: Response)
     const user = await getOrCreateUser(req.clerkUserId!, email);
     if (!user) return res.status(500).json({ error: 'Failed to resolve user' });
 
-    // Calculate amount based on whether it's a custom plan or predefined pack
-    // All amounts are in RUPEES (not paise)
-    let amountInRupees: number;
-    let selectedPack: string = 'unknown';
-    
+    // Everything below is in RUPEES.
+    let payable: number;          // what the customer pays: plan price + 18% GST
+    let selectedPack = 'unknown';
+
     if (isCustom && months) {
-      // Custom plan: calculate per-test price with GST, then multiply by tests
-      const priceMap: { [key: number]: number } = {
-        12: 300,  // ₹300/test for 12 months
-        18: 290,  // ₹290/test for 18 months
-        24: 280,  // ₹280/test for 24 months
-      };
-      const pricePerTest = priceMap[months] || 300;
-      const subtotal = credits * pricePerTest;
-      amountInRupees = Math.round(subtotal * 1.18); // Apply GST and round to rupee
+      payable = totalWithGst(calculateCustomPlanPrice(credits, months));
       selectedPack = `custom-${months}m`;
     } else if (planName && PLAN_PACKS[planName]) {
-      amountInRupees = PLAN_PACKS[planName].price;
+      payable = totalWithGst(PLAN_PACKS[planName].price);
       selectedPack = planName;
-      console.log(`[createOrder] Plan "${planName}" found: ₹${amountInRupees}, ${credits} credits`);
     } else {
-      // If plan not found, use trial price as fallback
-      console.warn(`[createOrder] Plan "${planName}" NOT found in PLAN_PACKS. Using trial price (₹235) as fallback. Available: ${Object.keys(PLAN_PACKS).join(', ')}`);
-      amountInRupees = PLAN_PACKS['trial'].price;
-      selectedPack = 'trial-fallback';
+      // No planName: the single AI report flow (AIReportCheckout). Never fall
+      // back to a plan price here — that silently charges a different amount
+      // than the one the user was shown. This price already includes GST.
+      payable = credits * SINGLE_REPORT_PRICE;
+      selectedPack = 'single-report';
     }
 
-    console.log(`[createOrder] Creating order: ${selectedPack}, amount=₹${amountInRupees}, credits=${credits}`);
+    console.log(`[createOrder] ${selectedPack}: ₹${payable} for ${credits} credit(s)`);
 
     const order = await razorpay.orders.create({
-      amount: amountInRupees,
+      amount: toPaise(payable), // the one place rupees become paise
       currency: 'INR',
       receipt: `zeflash_${Date.now()}`,
       notes: { 
@@ -70,7 +61,7 @@ createOrderRouter.post('/', requireAuth, async (req: AuthRequest, res: Response)
       data: {
         userId: user.id,
         razorpayOrderId: order.id,
-        amount: amountInRupees,
+        amount: payable,
         credits,
         status: 'created',
         ...(couponCode && { couponCode }),
@@ -79,7 +70,7 @@ createOrderRouter.post('/', requireAuth, async (req: AuthRequest, res: Response)
 
     return res.json({ 
       orderId: order.id, 
-      amount: amountInRupees,  // Return in RUPEES for frontend comparison
+      amount: payable, // rupees — the frontend compares against this
       currency: 'INR', 
       credits, 
       keyId: process.env.RAZORPAY_KEY_ID 

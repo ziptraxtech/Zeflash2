@@ -5,35 +5,44 @@ export const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET!,
 });
 
-// Plan-based credit packs: plan name -> {credits, price in rupees}
+// Plan pricing. One number per plan: its price in RUPEES, before GST.
 //
-// Prices are GST-INCLUSIVE in RUPEES (not paise).
-// Must match exactly: Math.round(base * 1.18)
-// where `base` is the card price in src/config/pricing.ts (PLAN_BASE_PRICE in rupees).
-// This is the amount Razorpay actually charges, so any change here must be
-// mirrored in pricing.ts or the customer sees a different number than they pay.
+// Everything in this codebase works in rupees. Razorpay is the single
+// exception — its API defines every `amount` field in paise — so `toPaise` is
+// applied once, at the call that creates the order, and nowhere else.
+//
+// These base prices must match PLAN_BASE_PRICE in src/config/pricing.ts.
+export const GST_RATE = 0.18;
+
 export const PLAN_PACKS: Record<string, { credits: number; price: number }> = {
-  'test': { credits: 1, price: 1 },                   // ₹1 (base ₹1 + 18% GST → ₹1.18 → rounded ₹1)
-  'trial': { credits: 1, price: 235 },                // ₹235 (base ₹199 + 18% GST → ₹234.82 → rounded ₹235)
-  'core': { credits: 4, price: 1769 },                // ₹1,769 (base ₹1,499 + 18% GST → ₹1,768.82 → rounded ₹1,769)
-  'premium': { credits: 6, price: 2949 },             // ₹2,949 (base ₹2,499 + 18% GST → ₹2,948.82 → rounded ₹2,949)
-  'elite': { credits: 12, price: 5899 },              // ₹5,899 (base ₹4,999 + 18% GST → ₹5,898.82 → rounded ₹5,899)
+  'test': { credits: 1, price: 1 },          // dev only
+  'trial': { credits: 1, price: 199 },       // One Time
+  'core': { credits: 4, price: 1499 },       // Core Pack
+  'premium': { credits: 6, price: 2499 },    // Premium Pack
+  'elite': { credits: 12, price: 4999 },     // Elite Pack
   // Legacy packs - no longer shown as cards, still reachable by direct link.
-  'starter': { credits: 6, price: 1770 },             // ₹1,770 (base ₹1,500 + 18% GST → ₹1,770)
-  'value': { credits: 12, price: 3540 },              // ₹3,540 (base ₹3,000 + 18% GST → ₹3,540)
-  'smart': { credits: 24, price: 7080 },              // ₹7,080 (base ₹6,000 + 18% GST → ₹7,080)
+  'starter': { credits: 6, price: 1500 },
+  'value': { credits: 12, price: 3000 },
+  'smart': { credits: 24, price: 6000 },
 };
 
-// Custom plans: per-test rupee price by validity, mirroring CUSTOM_PRICE_PER_TEST
-// in src/config/pricing.ts. Returns amount in RUPEES (not paise).
+/** What the customer pays, in rupees: plan price + 18% GST. */
+export const totalWithGst = (basePrice: number) => Math.round(basePrice * (1 + GST_RATE));
+
+/** Rupees -> paise. Razorpay boundary only; do not use this anywhere else. */
+export const toPaise = (rupees: number) => Math.round(rupees * 100);
+
+// A single AI report bought outside the plans (AIReportCheckout sends no
+// planName). ChargingStations advertises a flat ₹299 and that is what has
+// always been charged, so it is GST-inclusive rather than carrying the +18%.
+export const SINGLE_REPORT_PRICE = 299;
+
+/** Custom plan price in rupees, before GST. Mirrors CUSTOM_PRICE_PER_TEST. */
 export function calculateCustomPlanPrice(tests: number, months: number): number {
   const priceMap: { [key: number]: number } = {
     12: 300,  // ₹300/test for 12 months
     18: 290,  // ₹290/test for 18 months
     24: 280,  // ₹280/test for 24 months
   };
-  const pricePerTest = priceMap[months] || 300;
-  const subtotal = tests * pricePerTest;
-  // Return amount in RUPEES (round to the nearest rupee with 18% GST included)
-  return Math.round(subtotal * 1.18);
+  return tests * (priceMap[months] || 300);
 }

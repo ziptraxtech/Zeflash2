@@ -14,8 +14,15 @@ rsync -avz --exclude='node_modules' --exclude='dist' --exclude='.env' \
   -e "ssh -i ${SSH_KEY}" \
   ./backend/ ${EC2_USER}@${EC2_IP}:${REMOTE_DIR}/
 
-# 2. Copy .env separately
-scp -i ${SSH_KEY} ./backend/.env ${EC2_USER}@${EC2_IP}:${REMOTE_DIR}/.env
+# 2. Copy .env separately — but never overwrite the server's with an empty or
+#    missing local file. Doing so wipes RAZORPAY_*, DATABASE_URL and the Clerk
+#    keys, and the backend will not restart.
+if [ -s ./backend/.env ]; then
+  echo "📋 Copying local backend/.env to server..."
+  scp -i ${SSH_KEY} ./backend/.env ${EC2_USER}@${EC2_IP}:${REMOTE_DIR}/.env
+else
+  echo "⚠️  Local backend/.env is missing or empty — keeping the server's existing .env."
+fi
 
 # 3. SSH in and install/restart
 ssh -i ${SSH_KEY} ${EC2_USER}@${EC2_IP} << 'ENDSSH'
