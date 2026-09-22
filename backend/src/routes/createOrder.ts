@@ -53,9 +53,11 @@ createOrderRouter.post('/', requireAuth, async (req: AuthRequest, res: Response)
 
     console.log(`[createOrder] Creating order: ${selectedPack}, amount=₹${amountInRupees}, credits=${credits}`);
 
-    // Send amount in RUPEES to Razorpay (no paise conversion)
+    // Razorpay REQUIRES amount in paise (multiply by 100)
+    const amountInPaise = amountInRupees * 100;
+    
     const order = await razorpay.orders.create({
-      amount: amountInRupees,
+      amount: amountInPaise,
       currency: 'INR',
       receipt: `zeflash_${Date.now()}`,
       notes: { 
