@@ -284,7 +284,7 @@ setErrorMessage(null);
       const options: RazorpayOptions = {
         key: orderData.keyId,
         order_id: orderData.orderId,
-        amount: orderData.amount * 100,  // Convert rupees to paise for Razorpay
+        amount: orderData.amount,  // Amount in rupees (no paise conversion)
         currency: orderData.currency,
         name: 'Zeflash',
         description: planDetails.name,
