@@ -255,11 +255,23 @@ setErrorMessage(null);
 
       const orderData = orderPayload;
 
+      // Validate that backend sent us an order
+      if (!orderData.orderId) {
+        throw new Error('Backend failed to create Razorpay order');
+      }
+
+      // Log the exact amount we're about to charge
+      const expectedAmount = withGst(planDetails.totalPrice);
+      console.log(`[checkout] === ORDER DETAILS ===`);
+      console.log(`[checkout] Plan: ${plan}`);
+      console.log(`[checkout] Base price: ₹${planDetails.totalPrice}`);
+      console.log(`[checkout] Expected with GST: ₹${expectedAmount}`);
+      console.log(`[checkout] Backend returned: ₹${orderData.amount}`);
+      console.log(`[checkout] Order ID: ${orderData.orderId}`);
+      console.log(`[checkout] =====================`);
+
       // The backend returns orderData.amount in rupees (the final amount with GST).
       // Trust the backend calculation; no validation needed.
-      console.log(`[checkout] Order created: orderId=${orderData.orderId}, amount=${orderData.amount} (rupees), plan="${plan}"`);
-      console.log(`[checkout] Razorpay will be opened with: amount=${orderData.amount * 100} (paise)`);
-
 
       // Load Razorpay
       const loaded = await loadRazorpayScript();
@@ -268,10 +280,11 @@ setErrorMessage(null);
       }
 
       // Open Razorpay checkout
+      // When using order_id, Razorpay uses the amount from the order created on backend.
+      // Do NOT send amount field here - it overrides the order amount.
       const options: RazorpayOptions = {
         key: orderData.keyId,
         order_id: orderData.orderId,
-        amount: orderData.amount * 100,  // Razorpay API requires paise
         currency: orderData.currency,
         name: 'Zeflash',
         description: planDetails.name,
