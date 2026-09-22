@@ -16,6 +16,8 @@ createOrderRouter.post('/', requireAuth, async (req: AuthRequest, res: Response)
     couponCode?: string;
   };
 
+  console.log(`[createOrder] REQUEST RECEIVED - planName: "${planName}", credits: ${credits}, months: ${months}, isCustom: ${isCustom}`);
+
   if (!credits || credits < 1) {
     return res.status(400).json({ error: 'Invalid credits amount' });
   }
@@ -34,7 +36,7 @@ createOrderRouter.post('/', requireAuth, async (req: AuthRequest, res: Response)
     } else if (planName && PLAN_PACKS[planName]) {
       const basePrice = PLAN_PACKS[planName].price;
       payable = totalWithGst(basePrice);
-      console.log(`[createOrder] Plan "${planName}" - basePrice: ₹${basePrice}, after GST: ₹${payable}`);
+      console.log(`[createOrder] ✓ Plan "${planName}" found - basePrice: ₹${basePrice}, with GST (18%): ₹${payable}`);
       selectedPack = planName;
     } else {
       // No planName: the single AI report flow (AIReportCheckout). Never fall
@@ -42,12 +44,16 @@ createOrderRouter.post('/', requireAuth, async (req: AuthRequest, res: Response)
       // than the one the user was shown. This price already includes GST.
       payable = credits * SINGLE_REPORT_PRICE;
       selectedPack = 'single-report';
+      console.log(`[createOrder] ⚠ No plan found, using SINGLE_REPORT_PRICE: ₹${payable}`);
     }
 
-    console.log(`[createOrder] ${selectedPack}: ₹${payable} for ${credits} credit(s)`);
+    console.log(`[createOrder] CALCULATING: ${selectedPack} → ₹${payable} for ${credits} credit(s)`);
+
+    const amountInPaise = toPaise(payable);
+    console.log(`[createOrder] RAZORPAY: Converting ₹${payable} → ${amountInPaise} paise`);
 
     const order = await razorpay.orders.create({
-      amount: toPaise(payable), // the one place rupees become paise
+      amount: amountInPaise,
       currency: 'INR',
       receipt: `zeflash_${Date.now()}`,
       notes: { 
@@ -59,7 +65,7 @@ createOrderRouter.post('/', requireAuth, async (req: AuthRequest, res: Response)
       },
     });
 
-    console.log(`[createOrder] Razorpay order created: ${order.id}, amount in paise: ${order.amount}`);
+    console.log(`[createOrder] ✓ RAZORPAY ORDER CREATED: ${order.id} | Amount: ${order.amount} paise`);
 
     await prisma.payment.create({
       data: {
@@ -74,13 +80,13 @@ createOrderRouter.post('/', requireAuth, async (req: AuthRequest, res: Response)
 
     const response = { 
       orderId: order.id, 
-      amount: payable, // rupees — the frontend compares against this
+      amount: payable, // rupees — the frontend displays this
       currency: 'INR', 
       credits, 
       keyId: process.env.RAZORPAY_KEY_ID 
     };
     
-    console.log(`[createOrder] Sending to frontend: amount=${response.amount} (rupees), orderId=${response.orderId}`);
+    console.log(`[createOrder] ✓ RESPONSE TO FRONTEND: ₹${response.amount} (rupees) for order ${response.orderId}`);
     
     return res.json(response);
   } catch (err: any) {
