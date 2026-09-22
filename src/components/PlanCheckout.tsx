@@ -52,8 +52,8 @@ const PlanCheckout: React.FC = () => {
           name: 'Test Plan',
           tests: 1,
           validity: 0,
-          pricePerTest: Math.round(PLAN_BASE_PRICE.test / 1),
-          totalPrice: PLAN_BASE_PRICE.test,
+          pricePerTest: 1,
+          totalPrice: 1,  // FINAL price with 18% GST included
           features: [
             '1 complete diagnostic test',
             'Instant AI health report',
@@ -67,8 +67,8 @@ const PlanCheckout: React.FC = () => {
           name: 'One Time',
           tests: 1,
           validity: 0,
-          pricePerTest: Math.round(PLAN_BASE_PRICE.trial / 1),
-          totalPrice: PLAN_BASE_PRICE.trial,
+          pricePerTest: 235,
+          totalPrice: 235,  // FINAL price with 18% GST included
           features: [
             '1 complete 20-min diagnostic',
             'Instant health report',
@@ -83,8 +83,8 @@ const PlanCheckout: React.FC = () => {
           name: 'Core Pack',
           tests: 4,
           validity: 12,
-          pricePerTest: Math.round(PLAN_BASE_PRICE.core / 4),
-          totalPrice: PLAN_BASE_PRICE.core,
+          pricePerTest: 442,  // 1769 / 4 = 442.25 rounded to 442
+          totalPrice: 1769,  // FINAL price with 18% GST included
           features: [
             'Free Unlimited EV Charger & Service Center Discovery',
             'Free Digital Garage & Renew Vehicle Insurance',
@@ -100,8 +100,8 @@ const PlanCheckout: React.FC = () => {
           name: 'Premium Pack',
           tests: 6,
           validity: 12,
-          pricePerTest: Math.round(PLAN_BASE_PRICE.premium / 6),
-          totalPrice: PLAN_BASE_PRICE.premium,
+          pricePerTest: 492,  // 2949 / 6 = 491.5 rounded to 492
+          totalPrice: 2949,  // FINAL price with 18% GST included
           features: [
             'Free Unlimited EV Charger & Service Center Discovery',
             'Free Digital Garage & Renew Vehicle Insurance',
@@ -118,8 +118,8 @@ const PlanCheckout: React.FC = () => {
           name: 'Elite Pack',
           tests: 12,
           validity: 12,
-          pricePerTest: Math.round(PLAN_BASE_PRICE.elite / 12),
-          totalPrice: PLAN_BASE_PRICE.elite,
+          pricePerTest: 492,  // 5899 / 12 = 491.58 rounded to 492
+          totalPrice: 5899,  // FINAL price with 18% GST included
           features: [
             'Free Unlimited EV Charger & Service Center Discovery',
             'Free Digital Garage & Renew Vehicle Insurance',
@@ -260,7 +260,8 @@ setErrorMessage(null);
       // to be charged something they were never shown, so stop here rather than
       // opening the modal on a different amount. In practice this means the
       // backend is running an older build than the frontend and needs a deploy.
-      const expectedAmount = withGst(planDetails.totalPrice);
+      // NOTE: planDetails.totalPrice is ALREADY the final amount with GST included
+      const expectedAmount = planDetails.totalPrice;
       if (typeof orderData.amount === 'number' && orderData.amount !== expectedAmount) {
         console.error(
           `[checkout] price mismatch for plan "${plan}": page shows ₹${expectedAmount}, ` +
