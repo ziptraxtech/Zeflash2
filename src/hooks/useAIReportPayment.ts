@@ -37,7 +37,7 @@ export const useAIReportPayment = (): UseAIReportPaymentReturn => {
 
         const options: RazorpayOptions = {
           key: keyId,
-          amount: amount * 100, // Convert to paise
+          amount: amount,  // Amount in rupees (no paise conversion)
           currency: 'INR',
           name: 'Zeflash2.0 AI Report',
           description: `AI Health Report for Device ${deviceId}`,

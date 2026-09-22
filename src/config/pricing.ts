@@ -34,6 +34,5 @@ export const gstAmount = (basePrice: number) => Math.round(basePrice * GST_RATE)
 
 /**
  * Total payable in rupees: base + 18% GST, rounded to the rupee.
- * The backend must charge exactly `withGst(base) * 100` paise.
  */
 export const withGst = (basePrice: number) => Math.round(basePrice * (1 + GST_RATE));

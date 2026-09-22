@@ -2,7 +2,14 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@clerk/clerk-react';
 import { API_URL } from '../config/api';
-import { PLAN_BASE_PRICE, gstAmount, withGst } from '../config/pricing';
+import { PLAN_BASE_PRICE, gstAmount, withGst } from '../con      // Open Razorpay checkout
+      const options: RazorpayOptions = {
+        key: orderData.keyId,
+        order_id: orderData.orderId,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: 'Zeflash',
+        description: planDetails.name,ing';
 import {
   ArrowLeft,
   ShieldCheck,
@@ -284,7 +291,7 @@ setErrorMessage(null);
       const options: RazorpayOptions = {
         key: orderData.keyId,
         order_id: orderData.orderId,
-        amount: orderData.amount * 100,  // Razorpay requires paise
+        amount: orderData.amount,  // Amount in rupees (no paise conversion)
         currency: orderData.currency,
         name: 'Zeflash',
         description: planDetails.name,

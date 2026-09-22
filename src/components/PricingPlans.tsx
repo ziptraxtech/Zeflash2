@@ -249,7 +249,6 @@ const PricingPlans: React.FC = () => {
                       tests: plan.tests,
                       months: plan.months,
                       price: plan.price,
-                      amountInPaise: plan.price * 100,
                     });
                     navigate(
                       `/checkout?plan=${plan.id}&tests=${plan.tests}&months=${plan.months}&price=${plan.price}`
