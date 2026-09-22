@@ -32,7 +32,9 @@ createOrderRouter.post('/', requireAuth, async (req: AuthRequest, res: Response)
       payable = totalWithGst(calculateCustomPlanPrice(credits, months));
       selectedPack = `custom-${months}m`;
     } else if (planName && PLAN_PACKS[planName]) {
-      payable = totalWithGst(PLAN_PACKS[planName].price);
+      const basePrice = PLAN_PACKS[planName].price;
+      payable = totalWithGst(basePrice);
+      console.log(`[createOrder] Plan "${planName}" - basePrice: ₹${basePrice}, after GST: ₹${payable}`);
       selectedPack = planName;
     } else {
       // No planName: the single AI report flow (AIReportCheckout). Never fall
