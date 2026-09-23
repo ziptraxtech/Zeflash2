@@ -1,0 +1,40 @@
+name: Deploy Backend to EC2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'docker-compose-ec2.yml'
+      - 'Dockerfile'
+      - '.github/workflows/deploy-backend-ec2.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Deploy to EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_BACKEND_HOST }}
+          EC2_USER: ${{ secrets.EC2_BACKEND_USER }}
+          EC2_KEY: ${{ secrets.EC2_BACKEND_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$EC2_KEY" > ~/.ssh/deploy-key.pem
+          chmod 600 ~/.ssh/deploy-key.pem
+          ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
+
+          ssh -i ~/.ssh/deploy-key.pem $EC2_USER@$EC2_HOST << 'EOF'
+          set -e
+          cd /home/ec2-user/zeflash-backend
+          git fetch origin
+          git reset --hard origin/main
+          docker-compose -f docker-compose-ec2.yml down || true
+          docker build -t battery-ml:ec2-backend ./backend
+          docker-compose -f docker-compose-ec2.yml up -d
+          sleep 5
+          docker logs --tail 30 zeflash-backend
+          echo "✅ Backend deployment complete!"
+          EOF
