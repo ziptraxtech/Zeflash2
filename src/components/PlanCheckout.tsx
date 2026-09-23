@@ -280,11 +280,12 @@ setErrorMessage(null);
       }
 
       // Open Razorpay checkout
-      // When using order_id, Razorpay uses the amount from the order created on backend.
-      // Do NOT send amount field here - it overrides the order amount.
+      // Convert rupees to paise for Razorpay API (amount field expects paise)
+      const amountInPaise = orderData.amount * 100;
       const options: RazorpayOptions = {
         key: orderData.keyId,
         order_id: orderData.orderId,
+        amount: amountInPaise,
         currency: orderData.currency,
         name: 'Zeflash',
         description: planDetails.name,
