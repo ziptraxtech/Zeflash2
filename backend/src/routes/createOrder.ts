@@ -65,7 +65,10 @@ createOrderRouter.post('/', requireAuth, async (req: AuthRequest, res: Response)
       },
     });
 
-    console.log(`[createOrder] ✓ RAZORPAY ORDER CREATED: ${order.id} | Amount: ${order.amount} paise`);
+    console.log(`[createOrder] ✓ RAZORPAY ORDER CREATED:`);
+    console.log(`    Order ID: ${order.id}`);
+    console.log(`    Amount stored in Razorpay: ${order.amount} paise = ₹${(order.amount as any) / 100}`);
+    console.log(`    Expected: ${amountInPaise} paise = ₹${amountInPaise / 100}`);
 
     await prisma.payment.create({
       data: {
