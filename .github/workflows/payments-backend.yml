@@ -1,0 +1,169 @@
+name: Payments Backend — discover & deploy
+
+# The payments API (/create-order) runs behind
+# zeflash-backend-api-347575614.us-east-1.elb.amazonaws.com.
+#
+# deploy-backend.yml targets ap-south-1 / zeflash-ml-service, which is the ML
+# inference service — NOT this one. That is why backend/** changes have never
+# reached the box that prices orders.
+#
+# On push this job only LOOKS: it prints what the load balancer routes to, so
+# we can see whether the API runs on ECS or on an EC2 instance. It changes
+# nothing. Deploying is a separate, deliberate run (workflow_dispatch).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/payments-backend.yml'
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: 'Actually deploy (ECS services only). Leave false to just inspect.'
+        type: boolean
+        default: false
+
+env:
+  AWS_REGION: us-east-1
+  ALB_DNS: zeflash-backend-api-347575614.us-east-1.elb.amazonaws.com
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      cluster: ${{ steps.find.outputs.cluster }}
+      service: ${{ steps.find.outputs.service }}
+      target_type: ${{ steps.find.outputs.target_type }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Find what serves the payments API
+        id: find
+        run: |
+          set -euo pipefail
+
+          LB_ARN=$(aws elbv2 describe-load-balancers \
+            --query "LoadBalancers[?DNSName=='${ALB_DNS}'].LoadBalancerArn" \
+            --output text)
+
+          if [ -z "$LB_ARN" ] || [ "$LB_ARN" = "None" ]; then
+            echo "::error::No load balancer with DNS ${ALB_DNS} in ${AWS_REGION}."
+            echo "Load balancers visible in this region:"
+            aws elbv2 describe-load-balancers --query 'LoadBalancers[].DNSName' --output table
+            exit 1
+          fi
+          echo "Load balancer: $LB_ARN"
+
+          TG_ARNS=$(aws elbv2 describe-target-groups --load-balancer-arn "$LB_ARN" \
+            --query 'TargetGroups[].TargetGroupArn' --output text)
+
+          TARGET_TYPE="unknown"
+          for TG in $TG_ARNS; do
+            echo "--- target group: $TG"
+            aws elbv2 describe-target-groups --target-group-arns "$TG" \
+              --query 'TargetGroups[].{Port:Port,Protocol:Protocol,TargetType:TargetType}' --output table
+            aws elbv2 describe-target-health --target-group-arn "$TG" \
+              --query 'TargetHealthDescriptions[].{Id:Target.Id,Port:Target.Port,State:TargetHealth.State}' \
+              --output table
+            TT=$(aws elbv2 describe-target-groups --target-group-arns "$TG" \
+              --query 'TargetGroups[0].TargetType' --output text)
+            [ "$TT" != "None" ] && TARGET_TYPE="$TT"
+          done
+          echo "target_type=$TARGET_TYPE" >> "$GITHUB_OUTPUT"
+
+          # If an ECS service is wired to one of those target groups, name it.
+          CLUSTER_OUT=""; SERVICE_OUT=""
+          for CLUSTER in $(aws ecs list-clusters --query 'clusterArns[]' --output text); do
+            for SVC in $(aws ecs list-services --cluster "$CLUSTER" --query 'serviceArns[]' --output text); do
+              MATCH=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SVC" \
+                --query "services[0].loadBalancers[?contains(@.targetGroupArn, 'targetgroup')].targetGroupArn" \
+                --output text 2>/dev/null || true)
+              for TG in $TG_ARNS; do
+                if echo "$MATCH" | grep -q "$TG"; then
+                  echo "✅ ECS service behind this ALB: cluster=$CLUSTER service=$SVC"
+                  CLUSTER_OUT="$CLUSTER"; SERVICE_OUT="$SVC"
+                fi
+              done
+            done
+          done
+
+          echo "cluster=$CLUSTER_OUT" >> "$GITHUB_OUTPUT"
+          echo "service=$SERVICE_OUT" >> "$GITHUB_OUTPUT"
+
+          if [ -z "$CLUSTER_OUT" ]; then
+            echo "::warning::No ECS service is attached to this ALB — the API is running on EC2 instances (see the target table above). Deploy it with backend/deploy.sh against the instance listed, not with this workflow."
+          fi
+
+      - name: Summary
+        run: |
+          echo "### Payments backend target" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ALB: \`${ALB_DNS}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Target type: \`${{ steps.find.outputs.target_type }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ECS cluster: \`${{ steps.find.outputs.cluster || 'none — EC2-backed' }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ECS service: \`${{ steps.find.outputs.service || 'none — EC2-backed' }}\`" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    needs: discover
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy && needs.discover.outputs.service != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: ecr
+
+      - name: Build and push backend image
+        id: image
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          TAG: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          REPO=zeflash-backend
+          aws ecr describe-repositories --repository-names "$REPO" >/dev/null 2>&1 \
+            || aws ecr create-repository --repository-name "$REPO" >/dev/null
+          docker build -f backend/Dockerfile -t "$REGISTRY/$REPO:$TAG" .
+          docker push "$REGISTRY/$REPO:$TAG"
+          echo "uri=$REGISTRY/$REPO:$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Roll the service onto the new image
+        env:
+          CLUSTER: ${{ needs.discover.outputs.cluster }}
+          SERVICE: ${{ needs.discover.outputs.service }}
+          IMAGE: ${{ steps.image.outputs.uri }}
+        run: |
+          set -euo pipefail
+          TD_ARN=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+            --query 'services[0].taskDefinition' --output text)
+          aws ecs describe-task-definition --task-definition "$TD_ARN" --query taskDefinition > td.json
+
+          # Point every container at the new image, drop the read-only fields.
+          jq --arg IMAGE "$IMAGE" \
+            'del(.taskDefinitionArn,.revision,.status,.requiresAttributes,.compatibilities,.registeredAt,.registeredBy)
+             | .containerDefinitions |= map(.image = $IMAGE)' td.json > td-new.json
+
+          NEW_TD=$(aws ecs register-task-definition --cli-input-json file://td-new.json \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
+          aws ecs update-service --cluster "$CLUSTER" --service "$SERVICE" \
+            --task-definition "$NEW_TD" --force-new-deployment >/dev/null
+          aws ecs wait services-stable --cluster "$CLUSTER" --services "$SERVICE"
+          echo "Deployed $NEW_TD"
+
+      - name: Verify the live price table
+        run: |
+          set -euo pipefail
+          curl -sf "http://${ALB_DNS}/health" && echo
+          echo "Now check a plan: One Time should price at ₹235, Core ₹1,769, Premium ₹2,949."
