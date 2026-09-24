@@ -39,6 +39,9 @@ createOrderRouter.post('/', requireAuth, async (req: AuthRequest, res: Response)
       console.log(`[createOrder] ✓ Plan "${planName}" found - basePrice: ₹${basePrice}, with GST (18%): ₹${payable}`);
       selectedPack = planName;
     } else {
+      console.log(`[createOrder] DEBUG: planName="${planName}", isCustom=${isCustom}`);
+      console.log(`[createOrder] DEBUG: Available plans: ${Object.keys(PLAN_PACKS).join(', ')}`);
+      console.log(`[createOrder] DEBUG: planName in PLAN_PACKS? ${planName ? planName in PLAN_PACKS : 'planName is empty'}`);
       // No planName: the single AI report flow (AIReportCheckout). Never fall
       // back to a plan price here — that silently charges a different amount
       // than the one the user was shown. This price already includes GST.
