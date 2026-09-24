@@ -262,11 +262,13 @@ setErrorMessage(null);
 
       // Log the exact amount we're about to charge
       const expectedAmount = withGst(planDetails.totalPrice);
+      const amountInPaise = orderData.amount * 100;
       console.log(`[checkout] === ORDER DETAILS ===`);
       console.log(`[checkout] Plan: ${plan}`);
-      console.log(`[checkout] Base price: ₹${planDetails.totalPrice}`);
-      console.log(`[checkout] Expected with GST: ₹${expectedAmount}`);
-      console.log(`[checkout] Backend returned: ₹${orderData.amount}`);
+      console.log(`[checkout] Frontend calculated base price: ₹${planDetails.totalPrice}`);
+      console.log(`[checkout] Frontend calculated with GST: ₹${expectedAmount}`);
+      console.log(`[checkout] Backend returned amount (rupees): ₹${orderData.amount}`);
+      console.log(`[checkout] Backend returned amount (paise): ${amountInPaise}`);
       console.log(`[checkout] Order ID: ${orderData.orderId}`);
       console.log(`[checkout] =====================`);
 
@@ -280,12 +282,11 @@ setErrorMessage(null);
       }
 
       // Open Razorpay checkout
-      // Convert rupees to paise for Razorpay API (amount field expects paise)
-      const amountInPaise = orderData.amount * 100;
+      // When using order_id, Razorpay MUST use the amount from the order, not from options.
+      // Do NOT include amount field - it can cause display/processing issues.
       const options: RazorpayOptions = {
         key: orderData.keyId,
         order_id: orderData.orderId,
-        amount: amountInPaise,
         currency: orderData.currency,
         name: 'Zeflash',
         description: planDetails.name,
