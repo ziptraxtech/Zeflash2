@@ -38,19 +38,26 @@ createOrderRouter.post('/', requireAuth, async (req: AuthRequest, res: Response)
     if (isCustom && months) {
       payable = totalWithGst(calculateCustomPlanPrice(credits, months));
       selectedPack = `custom-${months}m`;
-    } else if (planName && planName in PLAN_PACKS) {
-      const basePrice = (PLAN_PACKS as any)[planName].price;
-      payable = totalWithGst(basePrice);
-      console.log(`[createOrder] ✓ Plan "${planName}" found - basePrice: ₹${basePrice}, with GST (18%): ₹${payable}`);
+    } else if (planName) {
+      // A plan was named, so it must be one we know. Falling back to some other
+      // price here is what makes Razorpay show a total the checkout page never
+      // displayed — fail loudly instead, so the mismatch can never be charged.
+      const pack = PLAN_PACKS[planName];
+      if (!pack) {
+        console.error(`[createOrder] Unknown plan "${planName}". Known: ${Object.keys(PLAN_PACKS).join(', ')}`);
+        return res.status(400).json({
+          error: `Unknown plan "${planName}". This is a configuration error — you have not been charged.`,
+        });
+      }
+      payable = totalWithGst(pack.price);
       selectedPack = planName;
+      console.log(`[createOrder] Plan "${planName}": base ₹${pack.price} + 18% GST = ₹${payable}`);
     } else {
-      console.log(`[createOrder] ⚠ No plan found for planName="${planName}", using SINGLE_REPORT_PRICE`);
-      // No planName: the single AI report flow (AIReportCheckout). Never fall
-      // back to a plan price here — that silently charges a different amount
-      // than the one the user was shown. This price already includes GST.
+      // No planName at all: the single AI report flow (AIReportCheckout).
+      // This price already includes GST.
       payable = credits * SINGLE_REPORT_PRICE;
       selectedPack = 'single-report';
-      console.log(`[createOrder] ⚠ Calculating: ${credits} credits × ₹${SINGLE_REPORT_PRICE} = ₹${payable}`);
+      console.log(`[createOrder] No plan named — ${credits} AI report(s) at ₹${SINGLE_REPORT_PRICE} = ₹${payable}`);
     }
 
     console.log(`[createOrder] CALCULATING: ${selectedPack} → ₹${payable} for ${credits} credit(s)`);
