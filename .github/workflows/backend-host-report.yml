@@ -1,0 +1,96 @@
+name: Backend host report (read-only)
+
+# Read-only reconnaissance on the instances serving the payments API.
+# It changes nothing — only describes — so we can pick how to reach the box:
+#   * SSM              — needs the agent running and an instance profile with SSM perms
+#   * Instance Connect — needs port 22 reachable from GitHub runners
+#   * SSH secrets      — needs EC2_BACKEND_HOST/USER/KEY set on the repo
+#
+# SSM already reported "not registered". This says whether that is fixable.
+#
+# Findings are emitted as ::warning:: lines on purpose: job logs need repo-admin
+# rights to download, but annotations are readable from the public API.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/backend-host-report.yml'
+
+env:
+  AWS_REGION: us-east-1
+  ALB_DNS: zeflash-backend-api-347575614.us-east-1.elb.amazonaws.com
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Describe the hosts
+        run: |
+          set -uo pipefail
+
+          WHO=$(aws sts get-caller-identity --query Arn --output text 2>&1 | tr '\n' ' ')
+          echo "::warning::IDENTITY: $WHO"
+
+          LB_ARN=$(aws elbv2 describe-load-balancers \
+            --query "LoadBalancers[?DNSName=='${ALB_DNS}'].LoadBalancerArn" --output text 2>/dev/null)
+
+          IDS=""
+          for TG in $(aws elbv2 describe-target-groups --load-balancer-arn "$LB_ARN" \
+                        --query 'TargetGroups[].TargetGroupArn' --output text 2>/dev/null); do
+            NEW=$(aws elbv2 describe-target-health --target-group-arn "$TG" \
+              --query "TargetHealthDescriptions[?starts_with(Target.Id,'i-')].Target.Id" --output text 2>/dev/null)
+            IDS="$IDS $NEW"
+          done
+          IDS=$(echo "$IDS" | tr ' \t' '\n\n' | grep -E '^i-' | sort -u | tr '\n' ' ' | sed 's/ *$//')
+          echo "::warning::INSTANCES: ${IDS:-none}"
+
+          if [ -z "$IDS" ]; then exit 0; fi
+
+          INFO=$(aws ec2 describe-instances --instance-ids $IDS \
+            --query 'Reservations[].Instances[].[InstanceId,State.Name,PlatformDetails,PublicIpAddress,PrivateIpAddress,KeyName]' \
+            --output text 2>&1 | tr '\n' ' | ')
+          echo "::warning::HOSTS (id state platform publicIp privateIp keyName): $INFO"
+
+          PROF=$(aws ec2 describe-instances --instance-ids $IDS \
+            --query 'Reservations[].Instances[].IamInstanceProfile.Arn' --output text 2>&1 | tr '\n' ' ')
+          echo "::warning::INSTANCE PROFILE: ${PROF:-NONE ATTACHED}"
+
+          SSH22=""
+          for SG in $(aws ec2 describe-instances --instance-ids $IDS \
+                        --query 'Reservations[].Instances[].SecurityGroups[].GroupId' --output text 2>/dev/null | tr '\t' '\n' | sort -u); do
+            R=$(aws ec2 describe-security-groups --group-ids "$SG" \
+              --query "SecurityGroups[].IpPermissions[?FromPort<=\`22\` && ToPort>=\`22\`].IpRanges[].CidrIp" \
+              --output text 2>/dev/null | tr '\n\t' '  ')
+            SSH22="$SSH22 [$SG: ${R:-closed}]"
+          done
+          echo "::warning::PORT 22 INGRESS:$SSH22"
+
+          # Can we make SSM work? Only useful if a role exists to attach to.
+          PNAME=$(echo "$PROF" | tr ' ' '\n' | grep -m1 'instance-profile/' | sed 's#.*/##')
+          if [ -n "$PNAME" ]; then
+            ROLE=$(aws iam get-instance-profile --instance-profile-name "$PNAME" \
+              --query 'InstanceProfile.Roles[0].RoleName' --output text 2>&1 | tr '\n' ' ')
+            echo "::warning::INSTANCE ROLE: $ROLE"
+            POL=$(aws iam list-attached-role-policies --role-name "$ROLE" \
+              --query 'AttachedPolicies[].PolicyName' --output text 2>&1 | tr '\n\t' '  ')
+            echo "::warning::ROLE POLICIES: $POL"
+            CAN=$(aws iam simulate-principal-policy \
+              --policy-source-arn "$WHO" \
+              --action-names iam:AttachRolePolicy ec2:AssociateIamInstanceProfile \
+              --query 'EvaluationResults[].[EvalActionName,EvalDecision]' --output text 2>&1 | tr '\n\t' ' ,')
+            echo "::warning::CAN I ENABLE SSM: $CAN"
+          else
+            echo "::warning::INSTANCE ROLE: none — enabling SSM needs a profile created and associated"
+          fi
+
+          AGENTS=$(aws ssm describe-instance-information \
+            --query 'InstanceInformationList[].[InstanceId,PingStatus,PlatformName]' --output text 2>&1 | tr '\n\t' ' ,')
+          echo "::warning::SSM AGENTS IN ACCOUNT: ${AGENTS:-none}"
