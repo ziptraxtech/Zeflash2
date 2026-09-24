@@ -7,7 +7,7 @@ import { prisma } from '../lib/prisma';
 export const createOrderRouter = Router();
 
 createOrderRouter.post('/', requireAuth, async (req: AuthRequest, res: Response) => {
-  const { credits, email, planName, months, isCustom, couponCode } = req.body as { 
+  let { credits, email, planName, months, isCustom, couponCode } = req.body as { 
     credits: number; 
     email?: string;
     planName?: string;
@@ -16,7 +16,12 @@ createOrderRouter.post('/', requireAuth, async (req: AuthRequest, res: Response)
     couponCode?: string;
   };
 
+  // TRIM planName to remove any whitespace
+  planName = planName?.trim().toLowerCase();
+
   console.log(`[createOrder] REQUEST RECEIVED - planName: "${planName}", credits: ${credits}, months: ${months}, isCustom: ${isCustom}`);
+  console.log(`[createOrder] PLAN_PACKS keys available: ${Object.keys(PLAN_PACKS).join(', ')}`);
+  console.log(`[createOrder] planName="${planName}" exists in PLAN_PACKS: ${planName ? (planName in PLAN_PACKS) : false}`);
 
   if (!credits || credits < 1) {
     return res.status(400).json({ error: 'Invalid credits amount' });
@@ -33,21 +38,19 @@ createOrderRouter.post('/', requireAuth, async (req: AuthRequest, res: Response)
     if (isCustom && months) {
       payable = totalWithGst(calculateCustomPlanPrice(credits, months));
       selectedPack = `custom-${months}m`;
-    } else if (planName && PLAN_PACKS[planName]) {
-      const basePrice = PLAN_PACKS[planName].price;
+    } else if (planName && planName in PLAN_PACKS) {
+      const basePrice = (PLAN_PACKS as any)[planName].price;
       payable = totalWithGst(basePrice);
       console.log(`[createOrder] ✓ Plan "${planName}" found - basePrice: ₹${basePrice}, with GST (18%): ₹${payable}`);
       selectedPack = planName;
     } else {
-      console.log(`[createOrder] DEBUG: planName="${planName}", isCustom=${isCustom}`);
-      console.log(`[createOrder] DEBUG: Available plans: ${Object.keys(PLAN_PACKS).join(', ')}`);
-      console.log(`[createOrder] DEBUG: planName in PLAN_PACKS? ${planName ? planName in PLAN_PACKS : 'planName is empty'}`);
+      console.log(`[createOrder] ⚠ No plan found for planName="${planName}", using SINGLE_REPORT_PRICE`);
       // No planName: the single AI report flow (AIReportCheckout). Never fall
       // back to a plan price here — that silently charges a different amount
       // than the one the user was shown. This price already includes GST.
       payable = credits * SINGLE_REPORT_PRICE;
       selectedPack = 'single-report';
-      console.log(`[createOrder] ⚠ No plan found, using SINGLE_REPORT_PRICE: ₹${payable}`);
+      console.log(`[createOrder] ⚠ Calculating: ${credits} credits × ₹${SINGLE_REPORT_PRICE} = ₹${payable}`);
     }
 
     console.log(`[createOrder] CALCULATING: ${selectedPack} → ₹${payable} for ${credits} credit(s)`);
