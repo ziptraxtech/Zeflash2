@@ -1,16 +1,12 @@
-name: Deploy Backend via SSM (no SSH key)
+name: Deploy Backend via SSM
 
-# The EC2 deploy workflow needs EC2_BACKEND_HOST/USER/KEY, and those secrets are
-# not set — which is why the payments API has never been redeployed and Razorpay
-# still prices orders from the old table.
+# The payments API behind the ALB is NOT a Docker container. It is the systemd
+# service `zeflash-backend` on the ALB's EC2 target, running `node dist/index.js`
+# from the git checkout /home/ubuntu/zeflash/backend on port 3001.
 #
-# This route needs none of them. The repo's AWS credentials already work (the
-# discovery job in payments-backend.yml ran fine with them), and AWS Systems
-# Manager can run a command on an instance without inbound SSH or a private key,
-# provided the SSM agent is running and the instance profile allows it.
-#
-# It finds the instances actually serving the payments ALB, then runs
-# backend/scripts/ec2-remote-deploy.sh on them as the user that owns the app.
+# SSM (AmazonSSMManagedInstanceCore on the instance role) runs this as root with
+# no SSH key: pull, rebuild dist, restart the service, and put the previous
+# build back if the build fails or the service does not come up healthy.
 
 on:
   push:
@@ -23,126 +19,96 @@ on:
 env:
   AWS_REGION: us-east-1
   ALB_DNS: zeflash-backend-api-347575614.us-east-1.elb.amazonaws.com
-  SCRIPT_URL: https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/backend/scripts/ec2-remote-deploy.sh
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Find the instances serving the payments API
+      - name: Find the SSM-online instances serving the payments API
         id: targets
         run: |
           set -euo pipefail
           LB_ARN=$(aws elbv2 describe-load-balancers \
             --query "LoadBalancers[?DNSName=='${ALB_DNS}'].LoadBalancerArn" --output text)
-          if [ -z "$LB_ARN" ] || [ "$LB_ARN" = "None" ]; then
-            echo "::error::No load balancer with DNS ${ALB_DNS} in ${AWS_REGION}."
-            exit 1
-          fi
-
           IDS=""
           for TG in $(aws elbv2 describe-target-groups --load-balancer-arn "$LB_ARN" \
                         --query 'TargetGroups[].TargetGroupArn' --output text); do
-            aws elbv2 describe-target-health --target-group-arn "$TG" \
-              --query 'TargetHealthDescriptions[].{Id:Target.Id,Port:Target.Port,State:TargetHealth.State}' \
-              --output table
-            # Only healthy instance-type targets; ip-type targets are not SSM-addressable.
-            NEW=$(aws elbv2 describe-target-health --target-group-arn "$TG" \
-              --query "TargetHealthDescriptions[?starts_with(Target.Id,'i-')].Target.Id" --output text)
-            IDS="$IDS $NEW"
+            IDS="$IDS $(aws elbv2 describe-target-health --target-group-arn "$TG" \
+              --query "TargetHealthDescriptions[?starts_with(Target.Id,'i-')].Target.Id" --output text)"
           done
-
-          IDS=$(echo "$IDS" | tr ' ' '\n' | grep -E '^i-' | sort -u | tr '\n' ' ' | sed 's/ *$//')
-          if [ -z "$IDS" ]; then
-            echo "::error::The ALB's targets are not EC2 instance IDs (probably ip-type targets), so SSM cannot address them. Use the SSH workflow instead."
-            exit 1
-          fi
-          echo "Instances: $IDS"
-          echo "ids=$IDS" >> "$GITHUB_OUTPUT"
-
-      - name: Check those instances are reachable by SSM
-        id: ssm
-        run: |
-          set -euo pipefail
+          IDS=$(echo "$IDS" | tr ' \t' '\n\n' | grep -E '^i-' | sort -u | paste -sd, -)
+          if [ -z "$IDS" ]; then echo "::error::No EC2 instance targets behind ${ALB_DNS}."; exit 1; fi
           ONLINE=$(aws ssm describe-instance-information \
-            --filters "Key=InstanceIds,Values=$(echo '${{ steps.targets.outputs.ids }}' | tr ' ' ',')" \
-            --query 'InstanceInformationList[?PingStatus==`Online`].InstanceId' --output text || true)
-          if [ -z "$ONLINE" ]; then
-            echo "::error::None of these instances are registered with SSM. The SSM agent must be running and the instance profile must include AmazonSSMManagedInstanceCore. Falling back to the SSH workflow is the alternative."
-            exit 1
-          fi
-          echo "SSM-online: $ONLINE"
-          echo "online=$ONLINE" >> "$GITHUB_OUTPUT"
+            --filters "Key=InstanceIds,Values=$IDS" \
+            --query 'InstanceInformationList[?PingStatus==`Online`].InstanceId' --output text)
+          if [ -z "$ONLINE" ]; then echo "::error::Instances $IDS are not online in SSM."; exit 1; fi
+          echo "Deploying to: $ONLINE"
+          echo "ids=$ONLINE" >> "$GITHUB_OUTPUT"
 
-      - name: Run the deploy
+      - name: Pull, build and restart
         id: run
         run: |
           set -euo pipefail
-          # SSM runs as root. The app is owned by ubuntu or ec2-user, and PM2
-          # state belongs to that user, so drop to the directory's owner.
-          cat > cmd.sh <<'WRAPPER'
+          cat > cmd.sh <<'EOF'
           set -e
-          curl -fsSL "SCRIPT_URL_PLACEHOLDER" -o /tmp/zeflash-deploy.sh
-          chmod +x /tmp/zeflash-deploy.sh
-          APP_DIR=""
-          for d in /home/ec2-user/zeflash-backend /home/ubuntu/zeflash-backend \
-                   /home/ubuntu/zeflash/backend /opt/zeflash-backend /root/zeflash-backend; do
-            if [ -d "$d/.git" ] || [ -f "$d/package.json" ]; then APP_DIR="$d"; break; fi
+          cd /home/ubuntu/zeflash
+          OLD=$(sudo -u ubuntu git rev-parse HEAD)
+          sudo -u ubuntu git fetch -q origin
+          sudo -u ubuntu git pull --ff-only -q origin main
+          NEW=$(sudo -u ubuntu git rev-parse HEAD)
+          echo "==> $OLD -> $NEW"
+          cd backend
+          rm -rf /tmp/dist.bak && cp -a dist /tmp/dist.bak
+          rollback() { echo "==> ROLLING BACK: $1"; rm -rf dist; cp -a /tmp/dist.bak dist; systemctl restart zeflash-backend; exit 1; }
+          if ! git diff --quiet "$OLD" "$NEW" -- package.json package-lock.json; then
+            sudo -u ubuntu -H npm ci || rollback "npm ci failed"
+          fi
+          if ! git diff --quiet "$OLD" "$NEW" -- prisma; then
+            sudo -u ubuntu -H npx prisma generate || rollback "prisma generate failed"
+          fi
+          sudo -u ubuntu -H npm run build || rollback "build failed"
+          systemctl restart zeflash-backend
+          for i in $(seq 1 12); do
+            sleep 5
+            if curl -fsS localhost:3001/health; then echo; echo "==> healthy at $(git log -1 --format='%h %s')"; exit 0; fi
           done
-          if [ -z "$APP_DIR" ]; then echo "ERROR: no backend checkout found"; exit 1; fi
-          OWNER=$(stat -c '%U' "$APP_DIR")
-          echo "==> running as $OWNER for $APP_DIR"
-          sudo -u "$OWNER" -H bash /tmp/zeflash-deploy.sh
-          WRAPPER
-          sed -i "s|SCRIPT_URL_PLACEHOLDER|${SCRIPT_URL}|" cmd.sh
+          rollback "service not healthy after 60s"
+          EOF
           jq -Rs '{commands: [.]}' < cmd.sh > params.json
-
           CMD_ID=$(aws ssm send-command \
-            --instance-ids ${{ steps.ssm.outputs.online }} \
+            --instance-ids $(echo '${{ steps.targets.outputs.ids }}' | tr '\t' ' ') \
             --document-name AWS-RunShellScript \
             --comment "Zeflash backend deploy ${{ github.sha }}" \
             --timeout-seconds 900 \
             --parameters file://params.json \
             --query 'Command.CommandId' --output text)
-          echo "SSM command: $CMD_ID"
           echo "cmd=$CMD_ID" >> "$GITHUB_OUTPUT"
 
       - name: Wait for it and print the output
         run: |
           set -euo pipefail
           FAILED=0
-          for INSTANCE in ${{ steps.ssm.outputs.online }}; do
+          for INSTANCE in ${{ steps.targets.outputs.ids }}; do
             echo "=================== $INSTANCE ==================="
-            for i in $(seq 1 60); do
+            STATUS=Pending
+            for i in $(seq 1 90); do
               STATUS=$(aws ssm get-command-invocation --command-id "${{ steps.run.outputs.cmd }}" \
                 --instance-id "$INSTANCE" --query 'Status' --output text 2>/dev/null || echo Pending)
-              case "$STATUS" in
-                Success|Failed|Cancelled|TimedOut) break ;;
-              esac
+              case "$STATUS" in Success|Failed|Cancelled|TimedOut) break ;; esac
               sleep 10
             done
             echo "--- status: $STATUS"
             aws ssm get-command-invocation --command-id "${{ steps.run.outputs.cmd }}" \
-              --instance-id "$INSTANCE" --query 'StandardOutputContent' --output text || true
-            ERR=$(aws ssm get-command-invocation --command-id "${{ steps.run.outputs.cmd }}" \
-              --instance-id "$INSTANCE" --query 'StandardErrorContent' --output text || true)
-            if [ -n "$ERR" ] && [ "$ERR" != "None" ]; then
-              echo "--- stderr ---"; echo "$ERR"
-            fi
-            if [ "$STATUS" != "Success" ]; then FAILED=1; fi
+              --instance-id "$INSTANCE" --query '[StandardOutputContent,StandardErrorContent]' --output text || true
+            [ "$STATUS" = Success ] || FAILED=1
           done
           exit $FAILED
 
       - name: Verify through the load balancer
-        run: |
-          set -euo pipefail
-          echo "Health: $(curl -fsS "http://${ALB_DNS}/health")"
-          echo "Deployed ${{ github.sha }} — confirm in the app: One Time ₹235, Core ₹1,769, Premium ₹2,949."
+        run: curl -fsS "http://${ALB_DNS}/health"

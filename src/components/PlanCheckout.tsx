@@ -273,7 +273,12 @@ setErrorMessage(null);
       console.log(`[checkout] =====================`);
 
       // The backend returns orderData.amount in rupees (the final amount with GST).
-      // Trust the backend calculation; no validation needed.
+      // Razorpay charges the order amount, not what this page shows, so if the two
+      // disagree (e.g. a stale backend build) refuse to open the payment modal.
+      if (Math.round(Number(orderData.amount)) !== expectedAmount) {
+        console.error(`[checkout] PRICE MISMATCH: page ₹${expectedAmount}, order ₹${orderData.amount} (${orderData.orderId})`);
+        throw new Error('We could not confirm the price for this plan. You have not been charged — please try again shortly or contact support.');
+      }
 
       // Load Razorpay
       const loaded = await loadRazorpayScript();
