@@ -1178,16 +1178,17 @@ const ChargingStations: React.FC = () => {
               <div className="absolute inset-0 rounded-xl border border-violet-400/50 group-hover:border-violet-500 opacity-0 group-hover:opacity-100 transition-opacity" />
             </button>
             <button
-              onClick={() => window.open('https://evchamp.in/', '_blank')}
-              className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-300 hover:border-blue-500 hover:bg-blue-100 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer group relative overflow-hidden"
+              onClick={() => window.open('https://evchamp.in/rsa-plans/', '_blank')}
+              className="p-3 rounded-xl bg-gradient-to-br from-orange-50 to-amber-50 border-2 border-orange-300 hover:border-orange-500 hover:bg-orange-100 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer group relative overflow-hidden"
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-400/0 via-blue-300/10 to-blue-400/0 group-hover:via-blue-300/20 transition-all" />
+              <div className="absolute inset-0 bg-gradient-to-r from-orange-400/0 via-orange-300/10 to-orange-400/0 group-hover:via-orange-300/20 transition-all" />
               <img 
-                src="/button.png" 
-                alt="EVChamp - Your EV Vehicle Companion" 
-                className="w-full h-auto object-contain relative z-10 group-hover:scale-105 transition-transform"
+                src="/rapidtest_new_image.png" 
+                alt="EV Champ - Drive Smart Drive Electric" 
+                className="w-full h-auto object-cover relative z-10 group-hover:scale-105 transition-transform"
+                style={{ maxHeight: '140px', objectPosition: 'center' }}
               />
-              <div className="absolute inset-0 rounded-xl border border-blue-400/50 group-hover:border-blue-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="absolute inset-0 rounded-xl border border-orange-400/50 group-hover:border-orange-500 opacity-0 group-hover:opacity-100 transition-opacity" />
             </button>
             <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 hover:bg-blue-100 transition-colors text-center">
               <div className="text-3xl text-blue-700 font-extrabold">Get Rapid AI Test in 20 mins ✅ (94.66% Accuracy)</div>
