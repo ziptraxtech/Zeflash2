@@ -12,8 +12,8 @@ export const PLAN_BASE_PRICE = {
   test: 1,
   trial: 199,
   core: 1499,
-  premium: 2499,
-  elite: 4999,
+  premium: 3499,
+  elite: 5999,
   // Legacy packs — no longer shown as cards, still reachable by direct link.
   starter: 1500,
   value: 3000,

@@ -1166,18 +1166,6 @@ const ChargingStations: React.FC = () => {
         {/* Stats Section */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-12">
             <button
-              onClick={() => setDataCollectionModal({ open: true, type: 'precision', formData: { name: '', email: '', contact: '' } })}
-              className="p-4 rounded-xl bg-gradient-to-br from-violet-50 to-purple-50 border-2 border-violet-300 hover:border-violet-500 hover:bg-violet-100 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 text-center cursor-pointer group relative overflow-hidden"
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-400/0 via-purple-300/10 to-purple-400/0 group-hover:via-purple-300/20 transition-all" />
-              <img 
-                src="/button2.png" 
-                alt="Click to get exciting offers" 
-                className="w-full h-auto object-contain relative z-10 group-hover:scale-105 transition-transform"
-              />
-              <div className="absolute inset-0 rounded-xl border border-violet-400/50 group-hover:border-violet-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </button>
-            <button
               onClick={() => window.open('https://evchamp.in/rsa-plans/', '_blank')}
               className="p-3 rounded-xl bg-gradient-to-br from-orange-50 to-amber-50 border-2 border-orange-300 hover:border-orange-500 hover:bg-orange-100 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer group relative overflow-hidden"
             >

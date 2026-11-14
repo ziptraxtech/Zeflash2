@@ -41,6 +41,13 @@ const ZeflashLanding: React.FC = () => {
   const [backPressCount, setBackPressCount] = useState<number>(0);
   const [showExitConfirm, setShowExitConfirm] = useState<boolean>(false);
   const [offerClaimed, setOfferClaimed] = useState<boolean>(false);
+  const [exclusiveOffersModal, setExclusiveOffersModal] = useState<{
+    open: boolean;
+    formData: { name: string; email: string; contact: string };
+  }>({
+    open: false,
+    formData: { name: '', email: '', contact: '' }
+  });
   const backPressTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const apkDownloadUrl = 'https://www.indusappstore.com/apps/auto-and-vehicles/zeflash/com.ziptraxtech.zeflash/?page=details&id=com.ziptraxtech.zeflash';
@@ -221,6 +228,17 @@ const ZeflashLanding: React.FC = () => {
                   <Play size={18} /> Flexible Testing Plans
                 </Link>
               </div>
+              <button
+                onClick={() => setExclusiveOffersModal({ ...exclusiveOffersModal, open: true })}
+                className="mt-3 w-full sm:w-auto inline-block"
+              >
+                <img 
+                  src="/button2.png" 
+                  alt="Exclusive Offers" 
+                  className="h-auto rounded-lg shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 object-cover"
+                  style={{ width: '100%', maxWidth: '500px', height: 'auto', minHeight: '70px' }}
+                />
+              </button>
             </div>
             <div className="relative">
               <div className="rounded-2xl border border-blue-100 bg-white p-6 shadow-xl shadow-blue-100/50">
@@ -974,6 +992,104 @@ const ZeflashLanding: React.FC = () => {
                 className="rounded-lg bg-gradient-to-r from-amber-500 to-orange-600 px-4 py-2.5 text-center font-semibold text-white hover:from-amber-600 hover:to-orange-700 transition-all"
               >
                 Exit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Exclusive Offers Modal */}
+      {exclusiveOffersModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
+            {/* Header */}
+            <div className="p-6 text-white bg-gradient-to-r from-purple-600 to-purple-700">
+              <h2 className="text-2xl font-bold">🎁 Exclusive Offers</h2>
+              <p className="text-sm mt-2 text-white/90">Get exclusive offers and discounts on Zeflash premium plans</p>
+            </div>
+
+            {/* Form Content */}
+            <div className="p-6 space-y-4">
+              {/* Name Field */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Full Name *</label>
+                <input
+                  type="text"
+                  placeholder="Your name"
+                  value={exclusiveOffersModal.formData.name}
+                  onChange={(e) => setExclusiveOffersModal(prev => ({
+                    ...prev,
+                    formData: { ...prev.formData, name: e.target.value }
+                  }))}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                />
+              </div>
+
+              {/* Email Field */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address *</label>
+                <input
+                  type="email"
+                  placeholder="your@email.com"
+                  value={exclusiveOffersModal.formData.email}
+                  onChange={(e) => setExclusiveOffersModal(prev => ({
+                    ...prev,
+                    formData: { ...prev.formData, email: e.target.value }
+                  }))}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                />
+              </div>
+
+              {/* Contact Field (Optional) */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Contact Number <span className="text-xs text-gray-500">(Optional)</span></label>
+                <input
+                  type="tel"
+                  placeholder="+91 XXXXX XXXXX"
+                  value={exclusiveOffersModal.formData.contact}
+                  onChange={(e) => setExclusiveOffersModal(prev => ({
+                    ...prev,
+                    formData: { ...prev.formData, contact: e.target.value }
+                  }))}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-gray-900"
+                />
+              </div>
+
+              {/* Info Box */}
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-sm text-purple-700">
+                <p className="font-semibold mb-1">🎁 Special Offer</p>
+                <p className="text-xs">Share your details to unlock exclusive discounts on premium Zeflash plans and special offers.</p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t border-gray-200 flex gap-3">
+              <button
+                onClick={() => setExclusiveOffersModal({ open: false, formData: { name: '', email: '', contact: '' } })}
+                className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-semibold hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!exclusiveOffersModal.formData.name.trim() || !exclusiveOffersModal.formData.email.trim()) {
+                    alert('Please fill in all required fields');
+                    return;
+                  }
+                  
+                  console.log('📋 Exclusive Offers Signup:', {
+                    name: exclusiveOffersModal.formData.name,
+                    email: exclusiveOffersModal.formData.email,
+                    contact: exclusiveOffersModal.formData.contact || 'Not provided'
+                  });
+                  
+                  // Close modal and show success message
+                  alert('✅ Thank you! We\'ll send you exclusive offers soon.');
+                  setExclusiveOffersModal({ open: false, formData: { name: '', email: '', contact: '' } });
+                }}
+                className="flex-1 px-4 py-2.5 rounded-lg bg-gradient-to-r from-purple-600 to-purple-700 text-white font-semibold hover:from-purple-700 hover:to-purple-800 transition-all"
+              >
+                Unlock Offers
               </button>
             </div>
           </div>

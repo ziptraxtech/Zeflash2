@@ -18,8 +18,8 @@ export const PLAN_PACKS: Record<string, { credits: number; price: number }> = {
   'test': { credits: 1, price: 1 },          // dev only
   'trial': { credits: 1, price: 199 },       // One Time
   'core': { credits: 4, price: 1499 },       // Core Pack
-  'premium': { credits: 6, price: 2499 },    // Premium Pack
-  'elite': { credits: 12, price: 4999 },     // Elite Pack
+  'premium': { credits: 6, price: 3499 },    // Premium Pack
+  'elite': { credits: 12, price: 5999 },     // Elite Pack
   // Legacy packs - no longer shown as cards, still reachable by direct link.
   'starter': { credits: 6, price: 1500 },
   'value': { credits: 12, price: 3000 },
